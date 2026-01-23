@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Poker Table</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Auth Screen -->
+    <div id="auth-screen" class="screen">
+      <div class="auth-container">
+        <h1>♠ Poker Room ♥</h1>
+        <div class="tabs">
+          <button class="tab active" data-tab="login">Login</button>
+          <button class="tab" data-tab="register">Register</button>
+        </div>
+        
+        <form id="login-form" class="auth-form">
+          <input type="text" id="login-username" placeholder="Username" required>
+          <input type="password" id="login-password" placeholder="Password" required>
+          <button type="submit">Login</button>
+        </form>
+        
+        <form id="register-form" class="auth-form hidden">
+          <input type="text" id="register-username" placeholder="Username" required>
+          <input type="password" id="register-password" placeholder="Password" required>
+          <button type="submit">Register</button>
+        </form>
+        
+        <p id="auth-error" class="error"></p>
+      </div>
+    </div>
+
+    <!-- Lobby Screen -->
+    <div id="lobby-screen" class="screen hidden">
+      <header>
+        <h2>♠ Poker Lobby</h2>
+        <div class="user-info">
+          <span id="lobby-username"></span>
+          <span id="role-badge" class="role-badge hidden">ADMIN</span>
+          <button id="logout-btn">Logout</button>
+        </div>
+      </header>
+      
+      <div class="lobby-content">
+        <div class="lobby-header">
+          <h3>Available Tables</h3>
+          <button id="create-table-btn" class="primary-btn hidden">+ Create Table</button>
+        </div>
+        <div id="tables-list" class="tables-list">
+          <p class="loading">Loading tables...</p>
+        </div>
+        <button id="refresh-tables" class="secondary-btn">Refresh</button>
+      </div>
+    </div>
+
+    <!-- Create Table Modal -->
+    <div id="create-table-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3>Create New Table</h3>
+        <form id="create-table-form">
+          <div class="form-group">
+            <label for="new-table-id">Table Name</label>
+            <input type="text" id="new-table-id" placeholder="e.g. high-stakes" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="new-small-blind">Small Blind</label>
+              <input type="number" id="new-small-blind" value="1" min="1" required>
+            </div>
+            <div class="form-group">
+              <label for="new-big-blind">Big Blind</label>
+              <input type="number" id="new-big-blind" value="2" min="1" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="new-min-players">Min Players</label>
+              <input type="number" id="new-min-players" value="2" min="2" max="10" required>
+            </div>
+            <div class="form-group">
+              <label for="new-max-players">Max Players</label>
+              <input type="number" id="new-max-players" value="10" min="2" max="10" required>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" id="cancel-create-table" class="secondary-btn">Cancel</button>
+            <button type="submit" class="primary-btn">Create Table</button>
+          </div>
+        </form>
+        <p id="create-table-error" class="error"></p>
+      </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="screen hidden">
+      <header>
+        <div class="table-info">
+          <span id="table-name">Table: main</span>
+          <span id="hand-number">Hand #0</span>
+          <span id="game-state">Waiting</span>
+        </div>
+        <button id="leave-table-btn">Leave Table</button>
+      </header>
+
+      <main class="game-area">
+        <!-- Poker Table -->
+        <div class="poker-table">
+          <div class="table-felt">
+            <!-- Community Cards -->
+            <div class="community-cards" id="community-cards"></div>
+            
+            <!-- Pot -->
+            <div class="pot" id="pot">Pot: $0</div>
+            
+            <!-- Player Seats -->
+            <div class="seats">
+              <div class="seat seat-0" data-seat="0"></div>
+              <div class="seat seat-1" data-seat="1"></div>
+              <div class="seat seat-2" data-seat="2"></div>
+              <div class="seat seat-3" data-seat="3"></div>
+              <div class="seat seat-4" data-seat="4"></div>
+              <div class="seat seat-5" data-seat="5"></div>
+              <div class="seat seat-6" data-seat="6"></div>
+              <div class="seat seat-7" data-seat="7"></div>
+              <div class="seat seat-8" data-seat="8"></div>
+              <div class="seat seat-9" data-seat="9"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions Panel -->
+        <div class="actions-panel" id="actions-panel">
+          <!-- Admin Controls -->
+          <div class="admin-controls hidden" id="admin-controls">
+            <button id="btn-start-hand" class="admin-btn">Start Hand</button>
+            <button id="btn-give-chips" class="admin-btn">Give Chips</button>
+          </div>
+          
+          <div class="action-buttons">
+            <button id="btn-fold" class="action-btn fold" disabled>Fold</button>
+            <button id="btn-check" class="action-btn check" disabled>Check</button>
+            <button id="btn-call" class="action-btn call" disabled>Call $0</button>
+            <button id="btn-raise" class="action-btn raise" disabled>Raise</button>
+            <button id="btn-allin" class="action-btn allin" disabled>All In</button>
+          </div>
+          <div class="raise-slider hidden" id="raise-controls">
+            <input type="range" id="raise-amount" min="0" max="1000" value="0">
+            <input type="number" id="raise-value" min="0" value="0">
+            <button id="btn-raise-confirm" class="action-btn raise">Raise $0</button>
+          </div>
+        </div>
+      </main>
+
+      <!-- Chat Panel -->
+      <aside class="chat-panel">
+        <div class="chat-messages" id="chat-messages"></div>
+        <form id="chat-form">
+          <input type="text" id="chat-input" placeholder="Type a message...">
+          <button type="submit">Send</button>
+        </form>
+      </aside>
+    </div>
+
+    <!-- Give Chips Modal -->
+    <div id="give-chips-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3>Manage Chips</h3>
+        <form id="give-chips-form">
+          <div class="form-group">
+            <label for="chips-player">Player</label>
+            <select id="chips-player" required>
+              <option value="">Select player...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="chips-amount">Amount</label>
+            <div class="chip-presets">
+              <button type="button" class="chip-preset" data-amount="100">+100</button>
+              <button type="button" class="chip-preset" data-amount="500">+500</button>
+              <button type="button" class="chip-preset" data-amount="1000">+1000</button>
+              <button type="button" class="chip-preset negative" data-amount="-100">-100</button>
+              <button type="button" class="chip-preset negative" data-amount="-500">-500</button>
+            </div>
+            <input type="number" id="chips-amount" placeholder="Custom amount" value="500">
+          </div>
+          <div class="modal-actions">
+            <button type="button" id="cancel-give-chips" class="secondary-btn">Close</button>
+            <button type="button" id="take-chips-btn" class="action-btn fold">Take Chips</button>
+            <button type="submit" class="primary-btn">Give Chips</button>
+          </div>
+        </form>
+        <p id="give-chips-error" class="error"></p>
+        <p id="give-chips-success" class="success"></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

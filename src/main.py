@@ -5,6 +5,7 @@ from typing import Optional, Any
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, Header
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -268,6 +269,22 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# CORS middleware - allow local development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+        "http://localhost:5500",  # VS Code Live Server
+        "http://127.0.0.1:5500",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 # Health check
 @app.get("/health")
@@ -349,7 +366,7 @@ async def list_tables():
     return {
         "tables": [
             {
-                "id": table_id,
+                "table_id": table_id,
                 "players": len(table.players),
                 "max_players": table.max_players,
                 "state": table.state.value,

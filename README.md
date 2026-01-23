@@ -16,6 +16,8 @@ A lightweight, robust Texas Hold'em poker server built with Python, FastAPI, and
 ## Table of Contents
 
 - [Setup](#setup)
+- [Web Client](#web-client)
+- [CLI Admin Tool](#cli-admin-tool)
 - [HTTP API](#http-api)
 - [WebSocket API](#websocket-api)
 - [Configuration](#configuration)
@@ -85,6 +87,73 @@ uvicorn src.main:app --host 0.0.0.0 --port 8765
 curl http://localhost:8765/health
 
 # Expected: {"status":"healthy","redis":true,"postgres":true}
+```
+
+---
+
+## Web Client
+
+A browser-based poker client is included in the `client/` folder.
+
+### Running the Client
+
+```bash
+# Option 1: Python
+cd client
+python3 -m http.server 3000
+
+# Option 2: Node.js
+npx serve client -p 3000
+```
+
+Then open http://localhost:3000
+
+### Features
+
+- Login / Register forms
+- Lobby with table list
+- Poker table with oval felt design
+- Player positions around the table
+- Community cards and pot display
+- Action buttons (Fold, Check, Call, Raise, All-In)
+- Raise slider for custom amounts
+- Chat panel
+- Automatic reconnection
+
+**Admin Features (in-game):**
+- Start Hand button
+- Give/Take Chips modal with preset amounts (+100, +500, +1000, -100, -500)
+- Real-time chip updates for all players
+
+---
+
+## CLI Admin Tool
+
+Manage users from the command line:
+
+```bash
+# Activate virtual environment
+source venv/bin/activate
+
+# List all users
+python -m src.cli list
+
+# Promote user to admin
+python -m src.cli promote alice
+
+# Demote admin to player
+python -m src.cli demote alice
+
+# Get user details
+python -m src.cli get alice
+
+# Delete user
+python -m src.cli delete bob
+```
+
+With Docker:
+```bash
+docker-compose exec app python -m src.cli promote alice
 ```
 
 ---
@@ -324,6 +393,9 @@ asyncio.run(play_poker())
 | `player_joined` | Player joined table |
 | `player_left` | Player left table |
 | `hand_result` | Hand finished with winners |
+| `chips_updated` | Player chips changed (admin action) |
+| `hand_started` | New hand started |
+| `state_changed` | Game state changed (preflop→flop, etc.) |
 | `chat` | Chat message |
 | `ledger` | Transaction history |
 | `standings` | Player standings |
@@ -350,11 +422,11 @@ asyncio.run(play_poker())
       "username": "alice",
       "seat": 0,
       "chips": 450,
-      "bet": 50,
-      "cards": ["As", "Kh"],
+      "current_bet": 50,
+      "hole_cards": ["As", "Kh"],
+      "has_cards": true,
       "is_folded": false,
-      "is_all_in": false,
-      "is_you": true
+      "is_all_in": false
     }
   ],
   "current_player": "uuid",
@@ -415,8 +487,14 @@ pk/
 ├── requirements.txt        # Python dependencies
 ├── pytest.ini              # Test configuration
 ├── .env.example            # Environment template
+├── client/                 # Web client
+│   ├── index.html          # Main HTML
+│   ├── style.css           # Styles
+│   ├── app.js              # Client logic
+│   └── README.md           # Client docs
 ├── src/
 │   ├── main.py             # FastAPI app + WebSocket server
+│   ├── cli.py              # Admin CLI tool
 │   ├── config.py           # Configuration management
 │   ├── auth/               # Authentication
 │   │   ├── jwt_handler.py  # JWT token management

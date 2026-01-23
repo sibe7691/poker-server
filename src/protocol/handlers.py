@@ -260,6 +260,12 @@ class MessageHandler:
                 ).model_dump()
             )
             
+            # Broadcast updated game state to ALL players at table
+            await self._broadcast_game_state(message.table_id)
+            
+            # Auto-start if enough players with chips and game is waiting
+            await self._try_auto_start(table, message.table_id)
+            
             # Return game state
             return GameStateMessage(
                 **table.get_state_for_player(user.user_id)
@@ -314,7 +320,11 @@ class MessageHandler:
                     code="INVALID_ACTION"
                 ).model_dump()
             
-            # Return updated state
+            # Broadcast updated state to ALL players (the table callbacks handle this too,
+            # but we ensure it here for reliability)
+            await self._broadcast_game_state(table_id)
+            
+            # Return updated state to the acting player
             return GameStateMessage(
                 **table.get_state_for_player(user.user_id)
             ).model_dump()
@@ -339,6 +349,19 @@ class MessageHandler:
                 ).model_dump()
             )
         return {"type": "chat_sent"}
+    
+    async def _try_auto_start(self, table, table_id: str) -> bool:
+        """Try to auto-start the game if conditions are met."""
+        from src.game.table import TableState
+        
+        # Only auto-start if waiting and can start
+        if table.state == TableState.WAITING and table.can_start_hand():
+            success = await table.start_hand()
+            if success:
+                logger.info(f"Auto-started hand on table {table_id}")
+                await self._broadcast_game_state(table_id)
+                return True
+        return False
     
     async def _handle_start_game(self, user: AuthenticatedUser) -> dict:
         """Handle start game request."""
@@ -494,6 +517,13 @@ class MessageHandler:
                     amount=message.amount,
                 ).model_dump()
             )
+            
+            # Broadcast updated game state to all players
+            await self._broadcast_game_state(table_id)
+            
+            # Try auto-start after chips given
+            if action == "buy_in":
+                await self._try_auto_start(table, table_id)
             
             return {"type": "chips_updated", "player": message.player, "chips": new_chips}
             
