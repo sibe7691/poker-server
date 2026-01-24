@@ -1,57 +1,16 @@
-# Poker Web Client
+# poker_app
 
-A browser-based client for the Poker WebSocket server.
+A new Flutter project.
 
-## Quick Start
+## Getting Started
 
-### Option 1: Open directly
+This project is a starting point for a Flutter application.
 
-Just open `index.html` in your browser. Note: Some browsers may block WebSocket connections from `file://` URLs.
+A few resources to get you started if this is your first Flutter project:
 
-### Option 2: Serve with Python
+- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
+- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
 
-```bash
-cd client
-python3 -m http.server 3000
-```
-
-Then open http://localhost:3000
-
-### Option 3: Serve with Node.js
-
-```bash
-npx serve client -p 3000
-```
-
-Then open http://localhost:3000
-
-## Features
-
-- Login / Register
-- View available tables
-- Join tables
-- Play Texas Hold'em
-- Real-time game updates
-- Chat with other players
-- Automatic reconnection
-
-## Configuration
-
-Edit `app.js` to change the server URLs:
-
-```javascript
-const API_URL = 'http://localhost:8765';
-const WS_URL = 'ws://localhost:8765/ws';
-```
-
-## Screenshots
-
-The client features:
-- Dark theme poker table UI
-- Oval felt table with player positions
-- Community cards display
-- Player cards (hidden for opponents)
-- Pot and bet displays
-- Action buttons (Fold, Check, Call, Raise, All-In)
-- Raise slider
-- Chat panel
+For help getting started with Flutter development, view the
+[online documentation](https://docs.flutter.dev/), which offers tutorials,
+samples, guidance on mobile development, and a full API reference.

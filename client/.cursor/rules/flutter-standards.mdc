@@ -1,0 +1,58 @@
+---
+description: Flutter app development standards and conventions
+alwaysApply: true
+---
+
+# Flutter Project Standards
+
+## Architecture
+- Use clean architecture with separation: presentation, domain, data layers
+- State management: prefer Riverpod or BLoC for scalable apps
+- Keep widgets small and focused (extract when > 100 lines)
+
+## Code Style
+
+```dart
+// ❌ BAD - widget doing too much
+class MyScreen extends StatelessWidget {
+  Widget build(context) {
+    // 200 lines of mixed logic and UI
+  }
+}
+
+// ✅ GOOD - separated concerns
+class MyScreen extends StatelessWidget {
+  Widget build(context) => Scaffold(
+    body: Column(children: [_Header(), _Content(), _Footer()]),
+  );
+}
+```
+
+## Naming Conventions
+- Files: `snake_case.dart`
+- Classes: `PascalCase`
+- Variables/functions: `camelCase`
+- Constants: `camelCase` or `SCREAMING_SNAKE_CASE`
+
+## Best Practices
+- Use `const` constructors wherever possible
+- Prefer `StatelessWidget` over `StatefulWidget` when no local state needed
+- Extract reusable widgets to `lib/widgets/`
+- Keep business logic out of widgets - use providers/blocs
+- Handle loading and error states explicitly
+
+## Project Structure
+```
+lib/
+  core/           # Shared utilities, constants, themes
+  features/       # Feature modules (screens + logic)
+  models/         # Data models
+  services/       # API clients, repositories
+  widgets/        # Reusable widgets
+  main.dart
+```
+
+## Error Handling
+- Wrap async calls in try-catch with meaningful error messages
+- Use `Result` or `Either` types for operations that can fail
+- Show user-friendly error messages, log technical details

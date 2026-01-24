@@ -58,3 +58,32 @@ logs/
 
 # Redis dump
 dump.rdb
+
+# Flutter/Dart (client app)
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+**/doc/api/
+**/ios/Flutter/.last_build_id
+client/build/
+client/.metadata
+
+# Flutter symbolication & obfuscation
+app.*.symbols
+app.*.map.json
+
+# Android build artifacts
+client/android/app/debug
+client/android/app/profile
+client/android/app/release
+
+# Additional IDE/editor files
+*.iml
+*.ipr
+*.iws
+.buildlog/
+.history
+.swiftpm/
+migrate_working_dir/
