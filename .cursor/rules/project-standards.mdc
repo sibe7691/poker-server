@@ -1,0 +1,132 @@
+---
+description: Project standards for the poker app - Flutter client and Python backend
+alwaysApply: true
+---
+
+# Poker Server Project Standards
+
+This is a full-stack poker application with:
+- **Client**: Flutter app in `/client`
+- **Server**: Python FastAPI backend in `/server`
+
+---
+
+## Project Structure
+
+```
+/client                    # Flutter mobile/web app
+  lib/
+    core/                  # Shared utilities, constants, themes
+    features/              # Feature modules (auth, game, lobby)
+    models/                # Dart data models (game_state, player, card)
+    providers/             # Riverpod state management
+    services/              # API clients, WebSocket service
+    widgets/               # Reusable widgets (player_seat, playing_card)
+    main.dart
+
+/server                    # Python FastAPI backend
+  src/
+    admin/                 # Chip management, ledger, standings
+    auth/                  # JWT, middleware, roles
+    db/                    # PostgreSQL connection, models
+    game/                  # Poker game logic (betting, deck, hand_eval)
+    protocol/              # WebSocket message schemas (messages.py)
+    state/                 # Redis state stores
+    main.py                # FastAPI app with REST + WebSocket endpoints
+```
+
+---
+
+## Client-Server Integration
+
+When working on client code that communicates with the backend:
+
+1. **Check backend message schemas** in `server/src/protocol/messages.py` for:
+   - WebSocket message types and payloads
+   - Client→Server messages (AuthMessage, ActionMessage, JoinTableMessage, etc.)
+   - Server→Client messages (GameStateMessage, YourTurnMessage, HandResultMessage, etc.)
+
+2. **Check REST API endpoints** in `server/src/main.py`:
+   - `POST /api/register` - Register user
+   - `POST /api/login` - Login, returns tokens
+   - `POST /api/refresh` - Refresh access token
+   - `GET /api/tables` - List tables
+   - `GET /api/standings` - Get session standings
+   - `POST /api/tables` - Create table (admin)
+   - `DELETE /api/tables/{table_id}` - Delete table (admin)
+
+3. **Check database models** in `server/src/db/models.py` for schema
+
+4. **Keep client models in sync** with server message schemas in `client/lib/models/`
+
+---
+
+## Flutter Client Standards
+
+### Architecture
+- Use clean architecture: presentation, domain, data layers
+- State management: Riverpod providers in `/providers`
+- Keep widgets small and focused (extract when > 100 lines)
+
+### Code Style
+```dart
+// ✅ GOOD - separated concerns
+class GameScreen extends StatelessWidget {
+  Widget build(context) => Scaffold(
+    body: Column(children: [_Header(), _PokerTable(), _ActionButtons()]),
+  );
+}
+```
+
+### Naming Conventions
+- Files: `snake_case.dart`
+- Classes: `PascalCase`
+- Variables/functions: `camelCase`
+
+### Best Practices
+- Use `const` constructors wherever possible
+- Prefer `StatelessWidget` when no local state needed
+- Extract reusable widgets to `lib/widgets/`
+- Keep business logic in providers, not widgets
+- Handle loading and error states explicitly
+
+---
+
+## Python Backend Standards
+
+### Architecture
+- FastAPI with async/await throughout
+- Pydantic models for request/response validation
+- WebSocket for real-time game communication
+- PostgreSQL for persistence, Redis for game state
+
+### Code Style
+- Type hints on all functions
+- Async functions for I/O operations
+- Pydantic `BaseModel` for all message schemas
+
+### Naming Conventions
+- Files: `snake_case.py`
+- Classes: `PascalCase`
+- Functions/variables: `snake_case`
+- Constants: `SCREAMING_SNAKE_CASE`
+
+### Best Practices
+- Use Pydantic for validation (see `protocol/messages.py`)
+- Log with `src.utils.logger.get_logger(__name__)`
+- Handle errors with appropriate HTTP status codes
+- Keep game logic in `/game`, protocol in `/protocol`
+
+---
+
+## Error Handling
+
+### Client
+- Wrap async calls in try-catch
+- Show user-friendly error messages
+- Log technical details for debugging
+
+### Server
+- Return `ErrorMessage` with code and message for WebSocket errors
+- Use `HTTPException` with appropriate status codes for REST API
+- Log errors with context using the logger
