@@ -1,30 +1,31 @@
-# Python
-__pycache__/
+# Python (server/)
+server/__pycache__/
+server/**/__pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+server/build/
+server/develop-eggs/
+server/dist/
+server/downloads/
+server/eggs/
+server/.eggs/
+server/lib/
+server/lib64/
+server/parts/
+server/sdist/
+server/var/
+server/wheels/
+server/*.egg-info/
+server/.installed.cfg
+server/*.egg
 
-# Virtual environments
-venv/
-ENV/
-env/
-.venv/
+# Virtual environments (server/)
+server/venv/
+server/ENV/
+server/env/
+server/.venv/
 
 # IDE
 .idea/
@@ -33,17 +34,17 @@ env/
 *.swo
 *~
 
-# Environment
-.env
-.env.local
-.env.*.local
+# Environment (server/)
+server/.env
+server/.env.local
+server/.env.*.local
 
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-.nox/
+# Testing (server/)
+server/.pytest_cache/
+server/.coverage
+server/htmlcov/
+server/.tox/
+server/.nox/
 
 # Docker
 .docker/
@@ -57,7 +58,7 @@ Thumbs.db
 logs/
 
 # Redis dump
-dump.rdb
+server/dump.rdb
 
 # Flutter/Dart (client app)
 .dart_tool/
