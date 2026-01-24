@@ -26,20 +26,23 @@ class PlayerSeat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Cards (if player has cards)
-        if (player.holeCards.isNotEmpty || player.hasCards || !player.isFolded)
-          _buildCards(),
-        const SizedBox(height: 4),
-        // Player info container
-        _buildPlayerInfo(context),
-        const SizedBox(height: 4),
-        // Current bet (if any)
-        if (player.currentBet > 0)
-          _buildBetChip(),
-      ],
+    return SizedBox(
+      width: 120,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Cards (if player has cards)
+          if (player.holeCards.isNotEmpty || player.hasCards || !player.isFolded)
+            _buildCards(),
+          const SizedBox(height: 4),
+          // Player info container
+          _buildPlayerInfo(context),
+          const SizedBox(height: 4),
+          // Current bet (if any)
+          if (player.currentBet > 0)
+            _buildBetChip(),
+        ],
+      ),
     );
   }
 
@@ -108,14 +111,17 @@ class PlayerSeat extends StatelessWidget {
               if (isSmallBlind) _buildBadge('SB', PokerTheme.chipBlue),
               if (isBigBlind) _buildBadge('BB', PokerTheme.chipRed),
               const SizedBox(width: 4),
-              Text(
-                player.username,
-                style: TextStyle(
-                  color: player.isFolded ? Colors.grey : Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
+              Flexible(
+                child: Text(
+                  player.username,
+                  style: TextStyle(
+                    color: player.isFolded ? Colors.grey : Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
-                overflow: TextOverflow.ellipsis,
               ),
               if (!player.isConnected)
                 const Padding(
@@ -215,49 +221,52 @@ class EmptySeat extends StatelessWidget {
   Widget build(BuildContext context) {
     final isSelectable = onTap != null;
     
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelectable
-              ? PokerTheme.tableFelt.withValues(alpha: 0.3)
-              : PokerTheme.surfaceDark.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelectable ? PokerTheme.goldAccent : Colors.white24,
-            width: isSelectable ? 2 : 1,
-            style: BorderStyle.solid,
+    return SizedBox(
+      width: 120,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelectable
+                ? PokerTheme.tableFelt.withValues(alpha: 0.3)
+                : PokerTheme.surfaceDark.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelectable ? PokerTheme.goldAccent : Colors.white24,
+              width: isSelectable ? 2 : 1,
+              style: BorderStyle.solid,
+            ),
+            boxShadow: isSelectable
+                ? [
+                    BoxShadow(
+                      color: PokerTheme.goldAccent.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
           ),
-          boxShadow: isSelectable
-              ? [
-                  BoxShadow(
-                    color: PokerTheme.goldAccent.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    spreadRadius: 1,
-                  ),
-                ]
-              : null,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isSelectable ? Icons.add_circle_outline : Icons.person_add_outlined,
-              color: isSelectable ? PokerTheme.goldAccent : Colors.white38,
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              isSelectable ? 'Sit Here' : 'Seat $seatNumber',
-              style: TextStyle(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isSelectable ? Icons.add_circle_outline : Icons.person_add_outlined,
                 color: isSelectable ? PokerTheme.goldAccent : Colors.white38,
-                fontSize: 12,
-                fontWeight: isSelectable ? FontWeight.w600 : FontWeight.normal,
+                size: 24,
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                isSelectable ? 'Sit Here' : 'Seat $seatNumber',
+                style: TextStyle(
+                  color: isSelectable ? PokerTheme.goldAccent : Colors.white38,
+                  fontSize: 12,
+                  fontWeight: isSelectable ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

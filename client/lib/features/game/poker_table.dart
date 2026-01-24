@@ -116,6 +116,11 @@ class PokerTable extends StatelessWidget {
     // Use the table's configured max players
     final maxSeats = gameState.maxPlayers;
     
+    // Get the player's seat for rotation (so their seat appears at bottom center)
+    // If spectating (no seat), don't rotate
+    final mySeat = gameState.me?.seat ?? 0;
+    final shouldRotate = gameState.me != null;
+    
     // Create a map of seat number to player
     final seatMap = <int, Player>{};
     for (final player in gameState.players) {
@@ -123,18 +128,28 @@ class PokerTable extends StatelessWidget {
     }
 
     for (int i = 0; i < maxSeats; i++) {
-      // Calculate position around the oval
-      // Start from bottom center and go clockwise
-      final angle = (math.pi / 2) + (2 * math.pi * i / maxSeats);
+      // Calculate visual position around the oval
+      // Start from bottom center and go counter-clockwise
+      // When player is seated, rotate so their seat appears at the bottom
+      final visualIndex = shouldRotate 
+          ? (i - mySeat + maxSeats) % maxSeats 
+          : i;
+      final angle = (math.pi / 2) + (2 * math.pi * visualIndex / maxSeats);
       final x = centerX + radiusX * math.cos(angle);
       final y = centerY + radiusY * math.sin(angle);
 
       final player = seatMap[i];
       
+      // Clamp position to keep widget within bounds
+      final widgetWidth = 120.0;
+      final widgetHeight = 130.0; // Cards (49) + spacing (4) + info (~50) + spacing (4) + bet (~23)
+      final clampedX = (x - widgetWidth / 2).clamp(0.0, constraints.maxWidth - widgetWidth);
+      final clampedY = (y - widgetHeight / 2).clamp(0.0, constraints.maxHeight - widgetHeight);
+      
       seats.add(
         Positioned(
-          left: x - 60, // Center the widget (approximately 120px wide)
-          top: y - 50,  // Center the widget (approximately 100px tall)
+          left: clampedX,
+          top: clampedY,
           child: player != null
               ? PlayerSeat(
                   player: player,
