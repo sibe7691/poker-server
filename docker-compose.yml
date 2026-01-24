@@ -1,6 +1,6 @@
 services:
   app:
-    build: .
+    build: ./server
     ports:
       - "8765:8765"
     environment:
@@ -16,7 +16,7 @@ services:
       postgres:
         condition: service_healthy
     volumes:
-      - ./src:/app/src:ro
+      - ./server/src:/app/src:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8765/health')"]
