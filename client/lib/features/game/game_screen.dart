@@ -26,7 +26,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   GameState? _gameState;
   final List<ChatMessage> _chatMessages = [];
   StreamSubscription? _handResultSub;
-  TableInfo? _tableInfo;
 
   @override
   void initState() {
@@ -44,12 +43,12 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final controller = ref.read(gameControllerProvider.notifier);
     final state = ref.read(gameControllerProvider);
 
-    debugPrint(
+    print(
       'GameScreen: _ensureConnection - isAuthenticated: ${state.isAuthenticated}, currentTableId: ${state.currentTableId}',
     );
 
     if (!state.isAuthenticated) {
-      debugPrint('GameScreen: Not authenticated, connecting...');
+      print('GameScreen: Not authenticated, connecting...');
       await controller.connectAndAuth();
       if (!mounted) return;
       await Future.delayed(const Duration(milliseconds: 500));
@@ -57,157 +56,41 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
     if (!mounted) return;
 
-    // Always fetch table info to get the authoritative maxPlayers value
-    debugPrint('GameScreen: Fetching table info');
-    await _fetchTableInfo();
+    // Join the table as a spectator (no seat) to receive game state updates
+    // The user will select a seat to actually join as a player
+    final currentState = ref.read(gameControllerProvider);
+    print(
+      'GameScreen: Checking join - currentTableId: ${currentState.currentTableId}, widget.tableId: ${widget.tableId}',
+    );
 
-    if (!mounted) return;
-
-    // Check if we already have a game state for this table AND we're seated
-    // Only use cached state if user is actually at the table (has 'me' player)
-    final existingGameState = ref.read(gameStateProvider).valueOrNull;
-
-    if (existingGameState != null &&
-        existingGameState.tableId == widget.tableId &&
-        existingGameState.me != null) {
-      debugPrint(
-        'GameScreen: Using cached game state (already seated at table), maxPlayers: ${existingGameState.maxPlayers}',
-      );
-      setState(() => _gameState = existingGameState);
-    }
-  }
-
-  Future<void> _fetchTableInfo() async {
-    try {
-      final tables = await ref
-          .read(gameControllerProvider.notifier)
-          .fetchTables();
-      if (!mounted) return;
-
-      final tableInfo = tables
-          .where((t) => t.tableId == widget.tableId)
-          .firstOrNull;
-      if (tableInfo != null) {
-        setState(() => _tableInfo = tableInfo);
-        debugPrint(
-          'GameScreen: Got table info - ${tableInfo.name}, max players: ${tableInfo.maxPlayers}',
-        );
+    if (currentState.currentTableId != widget.tableId) {
+      print('GameScreen: Joining table ${widget.tableId} as spectator');
+      controller.joinTable(widget.tableId);
+    } else {
+      print('GameScreen: Already at table ${widget.tableId}');
+      // We're already at this table, but _gameState is null (fresh widget).
+      // Check if we have a cached game state from the provider.
+      final existingGameState = ref.read(gameStateProvider).valueOrNull;
+      if (existingGameState != null &&
+          existingGameState.tableId == widget.tableId) {
+        print('GameScreen: Using cached game state');
+        setState(() => _gameState = existingGameState);
       } else {
-        debugPrint(
-          'GameScreen: Table ${widget.tableId} not found in tables list, using defaults',
-        );
-        // Table not found - create a placeholder TableInfo with defaults
-        // This allows the user to attempt joining (they'll get an error if table doesn't exist)
-        setState(
-          () => _tableInfo = TableInfo(
-            tableId: widget.tableId,
-            name: widget.tableId,
-            playerCount: 0,
-            maxPlayers: 10,
-            smallBlind: 1,
-            bigBlind: 2,
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('GameScreen: Failed to fetch table info: $e');
-      // On error, still allow attempting to join with defaults
-      if (mounted) {
-        setState(
-          () => _tableInfo = TableInfo(
-            tableId: widget.tableId,
-            name: widget.tableId,
-            playerCount: 0,
-            maxPlayers: 10,
-            smallBlind: 1,
-            bigBlind: 2,
-          ),
-        );
+        // No cached state available, re-join to request current state
+        print('GameScreen: Re-joining to request current state');
+        controller.joinTable(widget.tableId);
       }
     }
-  }
-
-  /// Creates a preview game state for displaying the table before joining
-  GameState _createPreviewState() {
-    final maxPlayers = _tableInfo?.maxPlayers ?? 10;
-    debugPrint(
-      'GameScreen: Creating preview state with maxPlayers: $maxPlayers (from tableInfo: ${_tableInfo != null})',
-    );
-    return GameState(
-      tableId: widget.tableId,
-      phase: GamePhase.waiting,
-      maxPlayers: maxPlayers,
-      smallBlind: _tableInfo?.smallBlind ?? 1,
-      bigBlind: _tableInfo?.bigBlind ?? 2,
-      players: const [],
-      communityCards: const [],
-    );
   }
 
   void _selectSeat(int seatIndex) {
     // Join the table at the selected seat
-    // This is the first join_table call - it happens when the user clicks a seat
-    debugPrint(
-      'GameScreen: User selected seat $seatIndex, joining table ${widget.tableId}',
-    );
     final controller = ref.read(gameControllerProvider.notifier);
     controller.joinTable(widget.tableId, seat: seatIndex);
   }
 
-  Future<void> _changeSeat(int newSeatIndex) async {
-    final currentSeat = _gameState?.me?.seat;
-    if (currentSeat == null) return;
-
-    final shouldChange = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: PokerTheme.surfaceDark,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Change Seat?',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: Text(
-          'Move from seat #${currentSeat + 1} to seat #${newSeatIndex + 1}?',
-          style: const TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.white54),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: PokerTheme.chipBlue,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Move'),
-          ),
-        ],
-      ),
-    );
-
-    if (shouldChange == true && mounted) {
-      final controller = ref.read(gameControllerProvider.notifier);
-      // Stand up first, then join the new seat
-      controller.standUp();
-      // Small delay to ensure stand up is processed
-      await Future.delayed(const Duration(milliseconds: 300));
-      if (mounted) {
-        controller.joinTable(widget.tableId, seat: newSeatIndex);
-      }
-    }
-  }
-
   void _leaveTable() {
-    // Only call leaveTable if we've actually joined (not in preview mode)
-    if (_gameState != null) {
-      ref.read(gameControllerProvider.notifier).leaveTable();
-    }
+    ref.read(gameControllerProvider.notifier).leaveTable();
     context.go('/lobby');
   }
 
@@ -261,53 +144,22 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     );
   }
 
-  void _showCashierDialog() {
-    final players = _gameState?.players ?? [];
-
-    if (players.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No players at the table'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (context) => _CashierDialog(
-        players: players,
-        onGiveChips: (playerId, amount) {
-          ref
-              .read(gameControllerProvider.notifier)
-              .giveChips(playerId: playerId, amount: amount);
-        },
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     // Listen for game state updates
     ref.listen(gameStateProvider, (previous, next) {
-      debugPrint(
+      print(
         'GameScreen: gameStateProvider changed - hasData: ${next.hasValue}, hasError: ${next.hasError}',
       );
       next.whenData((state) {
-        debugPrint(
-          'GameScreen: Received game state for table ${state.tableId}, players: ${state.players.length}, maxPlayers: ${state.maxPlayers}',
+        print(
+          'GameScreen: Received game state for table ${state.tableId}, players: ${state.players.length}',
         );
-        if (_tableInfo != null && state.maxPlayers != _tableInfo!.maxPlayers) {
-          debugPrint(
-            'GameScreen: WARNING - maxPlayers mismatch! tableInfo: ${_tableInfo!.maxPlayers}, gameState: ${state.maxPlayers}. Using tableInfo value.',
-          );
-        }
         setState(() => _gameState = state);
       });
       next.whenOrNull(
         error: (e, st) {
-          debugPrint('GameScreen: gameStateProvider error: $e');
+          print('GameScreen: gameStateProvider error: $e');
         },
       );
     });
@@ -329,7 +181,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     // Listen for errors
     ref.listen(wsErrorProvider, (previous, next) {
       next.whenData((error) {
-        debugPrint('GameScreen: WebSocket error: $error');
+        print('GameScreen: WebSocket error: $error');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(error), backgroundColor: Colors.red),
         );
@@ -337,32 +189,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     });
 
     final controllerState = ref.watch(gameControllerProvider);
-
-    // Determine if we have enough data to show the table
-    // In preview mode, we need _tableInfo to know the correct seat count
-    final hasGameState = _gameState != null;
-    final hasTableInfo = _tableInfo != null;
-    final canShowTable = hasGameState || hasTableInfo;
-
-    // Use actual game state if available, otherwise create a preview state
-    // IMPORTANT: Always use _tableInfo.maxPlayers when available to ensure
-    // consistent seat count between preview and joined states
-    GameState displayState;
-    if (_gameState != null) {
-      // Use game state but override maxPlayers from tableInfo for consistency
-      if (_tableInfo != null &&
-          _gameState!.maxPlayers != _tableInfo!.maxPlayers) {
-        debugPrint(
-          'GameScreen: Overriding maxPlayers from ${_gameState!.maxPlayers} to ${_tableInfo!.maxPlayers}',
-        );
-        displayState = _gameState!.copyWith(maxPlayers: _tableInfo!.maxPlayers);
-      } else {
-        displayState = _gameState!;
-      }
-    } else {
-      displayState = _createPreviewState();
-    }
-    final isPreviewMode = !hasGameState;
 
     return Scaffold(
       body: Container(
@@ -383,23 +209,18 @@ class _GameScreenState extends ConsumerState<GameScreen> {
             children: [
               // Top bar
               _buildTopBar(),
-              // Preview banner (if not yet joined) or Spectator banner (if joined but not seated)
-              if (isPreviewMode && canShowTable)
-                _buildPreviewBanner()
-              else if (_gameState != null && _gameState!.me == null)
+              // Spectator banner (if not seated)
+              if (_gameState != null && _gameState!.me == null)
                 _buildSpectatorBanner(),
               // Main game area
               Expanded(
-                child: !controllerState.isAuthenticated || !canShowTable
+                child: _gameState == null
                     ? _buildLoadingState(controllerState)
                     : PokerTable(
-                        gameState: displayState,
+                        gameState: _gameState!,
                         onAction: _sendAction,
-                        onSeatSelected: displayState.me == null
+                        onSeatSelected: _gameState!.me == null
                             ? _selectSeat
-                            : null,
-                        onChangeSeat: !isPreviewMode && displayState.me != null
-                            ? _changeSeat
                             : null,
                       ),
               ),
@@ -499,7 +320,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
             child: Column(
               children: [
                 Text(
-                  _tableInfo?.name ?? widget.tableId,
+                  widget.tableId,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -509,11 +330,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 if (_gameState != null)
                   Text(
                     '${_gameState!.smallBlind}/${_gameState!.bigBlind} blinds',
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
-                  )
-                else if (_tableInfo != null)
-                  Text(
-                    '${_tableInfo!.smallBlind}/${_tableInfo!.bigBlind} blinds',
                     style: const TextStyle(color: Colors.white54, fontSize: 12),
                   ),
               ],
@@ -529,13 +345,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: Colors.white),
             onSelected: (value) {
-              switch (value) {
-                case 'start':
-                  ref.read(gameControllerProvider.notifier).startGame();
-                  break;
-                case 'cashier':
-                  _showCashierDialog();
-                  break;
+              if (value == 'start') {
+                ref.read(gameControllerProvider.notifier).startGame();
               }
             },
             itemBuilder: (context) => [
@@ -546,16 +357,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                     Icon(Icons.play_arrow, size: 20),
                     SizedBox(width: 8),
                     Text('Start Game'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'cashier',
-                child: Row(
-                  children: [
-                    Icon(Icons.account_balance, size: 20),
-                    SizedBox(width: 8),
-                    Text('Cashier'),
                   ],
                 ),
               ),
@@ -581,33 +382,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           const CircularProgressIndicator(color: PokerTheme.goldAccent),
           const SizedBox(height: 16),
           Text(message, style: const TextStyle(color: Colors.white54)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPreviewBanner() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: PokerTheme.chipBlue.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: PokerTheme.chipBlue.withValues(alpha: 0.5)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.chair, color: PokerTheme.chipBlue, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Select a seat to join the table',
-              style: TextStyle(
-                color: PokerTheme.chipBlue,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -772,203 +546,6 @@ class _ChatSheetState extends State<_ChatSheet> {
   @override
   void dispose() {
     _controller.dispose();
-    super.dispose();
-  }
-}
-
-class _CashierDialog extends StatefulWidget {
-  final List<Player> players;
-  final void Function(String playerId, int amount) onGiveChips;
-
-  const _CashierDialog({required this.players, required this.onGiveChips});
-
-  @override
-  State<_CashierDialog> createState() => _CashierDialogState();
-}
-
-class _CashierDialogState extends State<_CashierDialog> {
-  Player? _selectedPlayer;
-  final _amountController = TextEditingController(text: '100');
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: PokerTheme.surfaceDark,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Row(
-        children: [
-          Icon(Icons.account_balance, color: PokerTheme.goldAccent),
-          SizedBox(width: 12),
-          Text('Cashier', style: TextStyle(color: Colors.white)),
-        ],
-      ),
-      content: SizedBox(
-        width: 300,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Select a player:',
-              style: TextStyle(color: Colors.white70, fontSize: 14),
-            ),
-            const SizedBox(height: 8),
-            // Player list
-            Container(
-              constraints: const BoxConstraints(maxHeight: 200),
-              decoration: BoxDecoration(
-                color: PokerTheme.surfaceLight,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: widget.players.length,
-                itemBuilder: (context, index) {
-                  final player = widget.players[index];
-                  final isSelected = _selectedPlayer?.userId == player.userId;
-                  return ListTile(
-                    selected: isSelected,
-                    selectedTileColor: PokerTheme.goldAccent.withValues(
-                      alpha: 0.2,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    leading: CircleAvatar(
-                      backgroundColor: player.chips > 0
-                          ? PokerTheme.primaryGreen
-                          : Colors.grey,
-                      radius: 16,
-                      child: Text(
-                        player.username[0].toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                    title: Text(
-                      player.username,
-                      style: TextStyle(
-                        color: isSelected
-                            ? PokerTheme.goldAccent
-                            : Colors.white,
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                      ),
-                    ),
-                    subtitle: Text(
-                      'Chips: ${player.chips}',
-                      style: TextStyle(
-                        color: player.chips > 0
-                            ? Colors.white54
-                            : Colors.orange,
-                        fontSize: 12,
-                      ),
-                    ),
-                    trailing: isSelected
-                        ? const Icon(
-                            Icons.check_circle,
-                            color: PokerTheme.goldAccent,
-                          )
-                        : null,
-                    onTap: () => setState(() => _selectedPlayer = player),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Amount input
-            const Text(
-              'Amount to give:',
-              style: TextStyle(color: Colors.white70, fontSize: 14),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _amountController,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: PokerTheme.surfaceLight,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
-                ),
-                prefixIcon: const Icon(
-                  Icons.monetization_on,
-                  color: PokerTheme.goldAccent,
-                ),
-                hintText: 'Enter amount',
-                hintStyle: const TextStyle(color: Colors.white38),
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Quick amount buttons
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [50, 100, 200, 500, 1000].map((amount) {
-                return ActionChip(
-                  label: Text('+$amount'),
-                  backgroundColor: PokerTheme.surfaceLight,
-                  labelStyle: const TextStyle(color: Colors.white70),
-                  onPressed: () {
-                    _amountController.text = amount.toString();
-                  },
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
-        ),
-        ElevatedButton.icon(
-          onPressed: _selectedPlayer == null
-              ? null
-              : () {
-                  final amount = int.tryParse(_amountController.text) ?? 0;
-                  if (amount <= 0) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please enter a valid amount'),
-                        backgroundColor: Colors.orange,
-                      ),
-                    );
-                    return;
-                  }
-                  widget.onGiveChips(_selectedPlayer!.userId, amount);
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Gave $amount chips to ${_selectedPlayer!.username}',
-                      ),
-                      backgroundColor: PokerTheme.primaryGreen,
-                    ),
-                  );
-                },
-          icon: const Icon(Icons.add),
-          label: const Text('Give Chips'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: PokerTheme.goldAccent,
-            foregroundColor: Colors.black,
-            disabledBackgroundColor: Colors.grey,
-          ),
-        ),
-      ],
-    );
-  }
-
-  @override
-  void dispose() {
-    _amountController.dispose();
     super.dispose();
   }
 }

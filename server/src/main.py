@@ -197,6 +197,9 @@ class GameServer:
             })
             
             if event_type in ("hand_started", "state_changed", "hand_result", "player_action"):
+                # Get set of seated player IDs to avoid sending spectator state to them
+                seated_player_ids = {p.user_id for p in table.players.values()}
+                
                 # Send to seated players
                 for player in table.players.values():
                     state = table.get_state_for_player(player.user_id)
@@ -205,10 +208,14 @@ class GameServer:
                         GameStateMessage(**state).model_dump()
                     )
                 
-                # Send to spectators
+                # Send to spectators (skip anyone who is also a seated player)
                 spectators = self.get_spectators(table.table_id)
                 spectator_state = table.get_state_for_spectator()
                 for user_id in spectators:
+                    if user_id in seated_player_ids:
+                        # User is seated - they already got player state, clean up inconsistency
+                        self.remove_spectator(user_id, table.table_id)
+                        continue
                     await self.send_to_user(
                         user_id,
                         GameStateMessage(**spectator_state).model_dump()

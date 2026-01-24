@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
 
@@ -15,16 +14,9 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController(text: 'Hejsan123!');
+  final _passwordController = TextEditingController();
   bool _isLogin = true;
   bool _obscurePassword = true;
-
-  @override
-  void initState() {
-    super.initState();
-    // TODO: Remove this before going into production
-    _passwordController.text = 'Hejsan123!';
-  }
 
   @override
   void dispose() {
@@ -62,7 +54,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [PokerTheme.primaryGreen, PokerTheme.darkBackground],
+            colors: [
+              PokerTheme.primaryGreen,
+              PokerTheme.darkBackground,
+            ],
           ),
         ),
         child: SafeArea(
@@ -138,7 +133,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget _buildForm(dynamic authState) {
     return Card(
       color: PokerTheme.surfaceDark,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Form(

@@ -247,6 +247,9 @@ class MessageHandler:
                 logger.info(f"Reconnecting disconnected player {user.username} at seat {existing.seat}")
                 existing.is_disconnected = False
                 
+                # Ensure not in spectators list (cleanup any inconsistency)
+                self.server.remove_spectator(user.user_id, message.table_id)
+                
                 # If they requested a different seat, allow seat change
                 if message.seat is not None and message.seat != existing.seat:
                     # Validate new seat
@@ -282,7 +285,11 @@ class MessageHandler:
             # If no seat specified, join as spectator
             if message.seat is None:
                 if existing:
-                    # Already seated - return current state
+                    # Already seated - ensure not in spectators list (cleanup)
+                    self.server.remove_spectator(user.user_id, message.table_id)
+                    # Track user's table
+                    self.server.user_tables[user.user_id] = message.table_id
+                    # Return current state
                     return GameStateMessage(
                         **table.get_state_for_player(user.user_id)
                     ).model_dump()
@@ -725,6 +732,9 @@ class MessageHandler:
         if not table:
             return
         
+        # Get set of seated player IDs to avoid sending spectator state to them
+        seated_player_ids = {p.user_id for p in table.players.values()}
+        
         # Send to seated players
         for player in table.players.values():
             state = table.get_state_for_player(player.user_id)
@@ -733,10 +743,15 @@ class MessageHandler:
                 GameStateMessage(**state).model_dump()
             )
         
-        # Send to spectators
+        # Send to spectators (skip anyone who is also a seated player)
         spectators = self.server.get_spectators(table_id)
         spectator_state = table.get_state_for_spectator()
         for user_id in spectators:
+            if user_id in seated_player_ids:
+                # User is seated - they already got player state, don't send spectator state
+                # Also clean up the inconsistency
+                self.server.remove_spectator(user_id, table_id)
+                continue
             await self.server.send_to_user(
                 user_id,
                 GameStateMessage(**spectator_state).model_dump()

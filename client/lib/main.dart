@@ -86,15 +86,13 @@ class _PokerAppState extends ConsumerState<PokerApp> {
     await ref.read(authProvider.notifier).initialize();
     if (mounted) {
       final isAuth = ref.read(isAuthenticatedProvider);
-      if (kIsWeb) {
+      if (kIsWeb)
         debugPrint('Main: Auth init complete - isAuthenticated: $isAuth');
-      }
       setState(() => _initialized = true);
       // Notify the router that auth state has changed
       _authNotifier.update(isAuthenticated: isAuth, initialized: true);
-      if (kIsWeb) {
+      if (kIsWeb)
         debugPrint('Main: Router notified, should redirect if authenticated');
-      }
     }
   }
 
@@ -120,17 +118,15 @@ class _PokerAppState extends ConsumerState<PokerApp> {
         }
 
         if (!isAuthenticated && !isLoginRoute) {
-          if (kIsWeb) {
+          if (kIsWeb)
             debugPrint('Router: Redirecting to /login (not authenticated)');
-          }
           return '/login';
         }
         if (isAuthenticated && (isLoginRoute || isRootRoute)) {
-          if (kIsWeb) {
+          if (kIsWeb)
             debugPrint(
               'Router: Redirecting to /lobby (authenticated on login/root)',
             );
-          }
           return '/lobby';
         }
         return null;
