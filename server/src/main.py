@@ -87,6 +87,7 @@ class GameServer:
         self.chip_managers: dict[str, ChipManager] = {}
         self.connections: dict[str, WebSocket] = {}  # user_id -> websocket
         self.user_tables: dict[str, str] = {}  # user_id -> table_id
+        self.spectators: dict[str, set[str]] = {}  # table_id -> set of user_ids
         self.handler: Optional[MessageHandler] = None
         self.game_session: Optional[GameSession] = None
 
@@ -196,17 +197,27 @@ class GameServer:
             })
             
             if event_type in ("hand_started", "state_changed", "hand_result", "player_action"):
+                # Send to seated players
                 for player in table.players.values():
                     state = table.get_state_for_player(player.user_id)
                     await self.send_to_user(
                         player.user_id,
                         GameStateMessage(**state).model_dump()
                     )
+                
+                # Send to spectators
+                spectators = self.get_spectators(table.table_id)
+                spectator_state = table.get_state_for_spectator()
+                for user_id in spectators:
+                    await self.send_to_user(
+                        user_id,
+                        GameStateMessage(**spectator_state).model_dump()
+                    )
         
         table.set_event_callback(event_callback)
 
     def get_player_table(self, user_id: str) -> Optional[str]:
-        """Get the table a player is at."""
+        """Get the table a player or spectator is at."""
         if user_id in self.user_tables:
             return self.user_tables[user_id]
         
@@ -215,7 +226,28 @@ class GameServer:
                 self.user_tables[user_id] = table_id
                 return table_id
         
+        # Check if spectating
+        for table_id, spectators in self.spectators.items():
+            if user_id in spectators:
+                self.user_tables[user_id] = table_id
+                return table_id
+        
         return None
+    
+    def add_spectator(self, user_id: str, table_id: str) -> None:
+        """Add a spectator to a table."""
+        if table_id not in self.spectators:
+            self.spectators[table_id] = set()
+        self.spectators[table_id].add(user_id)
+    
+    def remove_spectator(self, user_id: str, table_id: str) -> None:
+        """Remove a spectator from a table."""
+        if table_id in self.spectators:
+            self.spectators[table_id].discard(user_id)
+    
+    def get_spectators(self, table_id: str) -> set[str]:
+        """Get all spectators at a table."""
+        return self.spectators.get(table_id, set())
 
     def get_chip_manager(self, table_id: str) -> Optional[ChipManager]:
         """Get chip manager for a table."""
@@ -238,15 +270,23 @@ class GameServer:
         message: dict,
         exclude_user: Optional[str] = None
     ):
-        """Broadcast a message to all players at a table."""
+        """Broadcast a message to all players and spectators at a table."""
         table = self.tables.get(table_id)
         if not table:
             return
         
+        # Send to seated players
         for player in table.players.values():
             if exclude_user and player.user_id == exclude_user:
                 continue
             await self.send_to_user(player.user_id, message)
+        
+        # Send to spectators
+        spectators = self.get_spectators(table_id)
+        for user_id in spectators:
+            if exclude_user and user_id == exclude_user:
+                continue
+            await self.send_to_user(user_id, message)
 
 
 # Global server instance
@@ -538,6 +578,16 @@ async def _handle_disconnect(user: AuthenticatedUser):
     if not table_id:
         return
     
+    # Remove from user_tables tracking
+    if user.user_id in server.user_tables:
+        del server.user_tables[user.user_id]
+    
+    # Check if spectator
+    if user.user_id in server.get_spectators(table_id):
+        server.remove_spectator(user.user_id, table_id)
+        logger.info(f"Spectator {user.username} disconnected from table {table_id}")
+        return
+    
     table = server.tables.get(table_id)
     if not table:
         return
@@ -587,9 +637,25 @@ async def _grace_period_cleanup(user_id: str, table_id: str):
         if table:
             player = table.get_player_by_id(user_id)
             if player and player.is_disconnected:
+                username = player.username
+                
+                # Auto-fold if in active hand
                 if player.is_active and not player.is_folded:
                     player.fold()
-                    logger.info(f"Auto-folded {player.username} after grace period")
+                    logger.info(f"Auto-folded {username} after grace period")
+                
+                # Remove player from table entirely
+                # They can rejoin later at any seat
+                table.remove_player(user_id)
+                logger.info(f"Removed {username} from table {table_id} after grace period expired")
+                
+                # Broadcast updated state to remaining players
+                for remaining_player in table.players.values():
+                    state = table.get_state_for_player(remaining_player.user_id)
+                    await server.send_to_user(
+                        remaining_player.user_id,
+                        GameStateMessage(**state).model_dump()
+                    )
         
         await session_store.delete_session(user_id)
         if user_id in server.user_tables:

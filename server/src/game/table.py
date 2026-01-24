@@ -515,7 +515,7 @@ class Table:
         """Get table state from a player's perspective.
         
         Args:
-            user_id: The player requesting state.
+            user_id: The player requesting state (can be spectator).
             
         Returns:
             State dictionary with appropriate visibility.
@@ -524,9 +524,15 @@ class Table:
         for seat in sorted(self.players.keys()):
             player = self.players[seat]
             if player.user_id == user_id:
-                players_data.append(player.to_private_dict())
+                player_data = player.to_private_dict()
+                player_data["is_you"] = True
+                player_data["is_connected"] = not player.is_disconnected
+                players_data.append(player_data)
             else:
-                players_data.append(player.to_dict(hide_cards=True))
+                player_data = player.to_dict(hide_cards=True)
+                player_data["is_you"] = False
+                player_data["is_connected"] = not player.is_disconnected
+                players_data.append(player_data)
         
         current_player_id = None
         valid_actions = []
@@ -551,12 +557,44 @@ class Table:
             "small_blind": self.small_blind,
             "big_blind": self.big_blind,
             "pot": self.pot.get_total(),
+            "max_players": self.max_players,
             "community_cards": [str(c) for c in self.community_cards],
             "players": players_data,
             "current_player": current_player_id,
             "valid_actions": valid_actions,
             "call_amount": call_amount,
             "min_raise": min_raise,
+        }
+    
+    def get_state_for_spectator(self) -> dict:
+        """Get table state from a spectator's perspective.
+        
+        Returns:
+            State dictionary with no player marked as 'you'.
+        """
+        players_data = []
+        for seat in sorted(self.players.keys()):
+            player = self.players[seat]
+            player_data = player.to_dict(hide_cards=True)
+            player_data["is_you"] = False
+            player_data["is_connected"] = not player.is_disconnected
+            players_data.append(player_data)
+        
+        return {
+            "table_id": self.table_id,
+            "state": self.state.value,
+            "hand_number": self.hand_number,
+            "dealer_seat": self.dealer_seat,
+            "small_blind": self.small_blind,
+            "big_blind": self.big_blind,
+            "pot": self.pot.get_total(),
+            "max_players": self.max_players,
+            "community_cards": [str(c) for c in self.community_cards],
+            "players": players_data,
+            "current_player": None,
+            "valid_actions": [],
+            "call_amount": 0,
+            "min_raise": 0,
         }
     
     def to_dict(self) -> dict:
@@ -568,6 +606,8 @@ class Table:
             "dealer_seat": self.dealer_seat,
             "small_blind": self.small_blind,
             "big_blind": self.big_blind,
+            "min_players": self.min_players,
+            "max_players": self.max_players,
             "pot": self.pot.to_dict(),
             "community_cards": [c.to_dict() for c in self.community_cards],
             "players": {
@@ -583,6 +623,8 @@ class Table:
             table_id=data["table_id"],
             small_blind=data["small_blind"],
             big_blind=data["big_blind"],
+            min_players=data.get("min_players", 2),
+            max_players=data.get("max_players", 10),
         )
         table.state = TableState(data["state"])
         table.hand_number = data["hand_number"]

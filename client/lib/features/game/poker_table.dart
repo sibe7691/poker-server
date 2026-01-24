@@ -1,5 +1,7 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+
 import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../../models/models.dart';
@@ -61,10 +63,7 @@ class PokerTable extends StatelessWidget {
         borderRadius: BorderRadius.all(
           Radius.elliptical(width / 2, height / 2),
         ),
-        border: Border.all(
-          color: const Color(0xFF5D4037),
-          width: 12,
-        ),
+        border: Border.all(color: const Color(0xFF5D4037), width: 12),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.5),
@@ -94,8 +93,7 @@ class PokerTable extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Pot display
-              if (gameState.pot > 0)
-                PotDisplay(pot: gameState.pot),
+              if (gameState.pot > 0) PotDisplay(pot: gameState.pot),
               const SizedBox(height: 16),
               // Community cards
               CommunityCards(cards: gameState.communityCards),
@@ -106,18 +104,21 @@ class PokerTable extends StatelessWidget {
     );
   }
 
-  List<Widget> _buildPlayerSeats(BuildContext context, BoxConstraints constraints) {
+  List<Widget> _buildPlayerSeats(
+    BuildContext context,
+    BoxConstraints constraints,
+  ) {
     final List<Widget> seats = [];
     final centerX = constraints.maxWidth / 2;
     final centerY = constraints.maxHeight / 2;
-    
+
     // Oval dimensions for seat placement
     final radiusX = constraints.maxWidth * 0.42;
     final radiusY = constraints.maxHeight * 0.38;
 
     // Use the table's configured max players
     final maxSeats = gameState.maxPlayers;
-    
+
     // Create a map of seat number to player
     final seatMap = <int, Player>{};
     for (final player in gameState.players) {
@@ -132,14 +133,15 @@ class PokerTable extends StatelessWidget {
       final y = centerY + radiusY * math.sin(angle);
 
       final player = seatMap[i];
-      
+
       final isSeated = gameState.me != null;
-      final canChangeSeat = isSeated && onChangeSeat != null && !gameState.isInProgress;
-      
+      final canChangeSeat =
+          isSeated && onChangeSeat != null && !gameState.isInProgress;
+
       seats.add(
         Positioned(
           left: x - 60, // Center the widget (approximately 120px wide)
-          top: y - 50,  // Center the widget (approximately 100px tall)
+          top: y - 50, // Center the widget (approximately 100px tall)
           child: player != null
               ? PlayerSeat(
                   player: player,
@@ -151,8 +153,8 @@ class PokerTable extends StatelessWidget {
                 )
               : EmptySeat(
                   seatNumber: i + 1,
-                  onTap: onSeatSelected != null 
-                      ? () => onSeatSelected!(i) 
+                  onTap: onSeatSelected != null
+                      ? () => onSeatSelected!(i)
                       : (canChangeSeat ? () => onChangeSeat!(i) : null),
                   isChangeSeat: canChangeSeat && onSeatSelected == null,
                 ),

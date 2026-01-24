@@ -26,6 +26,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   GameState? _gameState;
   final List<ChatMessage> _chatMessages = [];
   StreamSubscription? _handResultSub;
+  TableInfo? _tableInfo;
 
   @override
   void initState() {
@@ -56,35 +57,81 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
     if (!mounted) return;
 
-    // Join the table as a spectator (no seat) to receive game state updates
-    // The user will select a seat to actually join as a player
-    final currentState = ref.read(gameControllerProvider);
-    debugPrint(
-      'GameScreen: Checking join - currentTableId: ${currentState.currentTableId}, widget.tableId: ${widget.tableId}',
-    );
+    // Always fetch table info to get the authoritative maxPlayers value
+    debugPrint('GameScreen: Fetching table info');
+    await _fetchTableInfo();
+    
+    if (!mounted) return;
 
-    if (currentState.currentTableId != widget.tableId) {
-      debugPrint('GameScreen: Joining table ${widget.tableId} as spectator');
-      controller.joinTable(widget.tableId);
-    } else {
-      debugPrint('GameScreen: Already at table ${widget.tableId}');
-      // We're already at this table, but _gameState is null (fresh widget).
-      // Check if we have a cached game state from the provider.
-      final existingGameState = ref.read(gameStateProvider).valueOrNull;
-      if (existingGameState != null &&
-          existingGameState.tableId == widget.tableId) {
-        debugPrint('GameScreen: Using cached game state');
-        setState(() => _gameState = existingGameState);
+    // Check if we already have a game state for this table AND we're seated
+    // Only use cached state if user is actually at the table (has 'me' player)
+    final existingGameState = ref.read(gameStateProvider).valueOrNull;
+    
+    if (existingGameState != null &&
+        existingGameState.tableId == widget.tableId &&
+        existingGameState.me != null) {
+      debugPrint('GameScreen: Using cached game state (already seated at table), maxPlayers: ${existingGameState.maxPlayers}');
+      setState(() => _gameState = existingGameState);
+    }
+  }
+
+  Future<void> _fetchTableInfo() async {
+    try {
+      final tables = await ref.read(gameControllerProvider.notifier).fetchTables();
+      if (!mounted) return;
+      
+      final tableInfo = tables.where((t) => t.tableId == widget.tableId).firstOrNull;
+      if (tableInfo != null) {
+        setState(() => _tableInfo = tableInfo);
+        debugPrint('GameScreen: Got table info - ${tableInfo.name}, max players: ${tableInfo.maxPlayers}');
       } else {
-        // No cached state available, re-join to request current state
-        debugPrint('GameScreen: Re-joining to request current state');
-        controller.joinTable(widget.tableId);
+        debugPrint('GameScreen: Table ${widget.tableId} not found in tables list, using defaults');
+        // Table not found - create a placeholder TableInfo with defaults
+        // This allows the user to attempt joining (they'll get an error if table doesn't exist)
+        setState(() => _tableInfo = TableInfo(
+          tableId: widget.tableId,
+          name: widget.tableId,
+          playerCount: 0,
+          maxPlayers: 10,
+          smallBlind: 1,
+          bigBlind: 2,
+        ));
+      }
+    } catch (e) {
+      debugPrint('GameScreen: Failed to fetch table info: $e');
+      // On error, still allow attempting to join with defaults
+      if (mounted) {
+        setState(() => _tableInfo = TableInfo(
+          tableId: widget.tableId,
+          name: widget.tableId,
+          playerCount: 0,
+          maxPlayers: 10,
+          smallBlind: 1,
+          bigBlind: 2,
+        ));
       }
     }
   }
 
+  /// Creates a preview game state for displaying the table before joining
+  GameState _createPreviewState() {
+    final maxPlayers = _tableInfo?.maxPlayers ?? 10;
+    debugPrint('GameScreen: Creating preview state with maxPlayers: $maxPlayers (from tableInfo: ${_tableInfo != null})');
+    return GameState(
+      tableId: widget.tableId,
+      phase: GamePhase.waiting,
+      maxPlayers: maxPlayers,
+      smallBlind: _tableInfo?.smallBlind ?? 1,
+      bigBlind: _tableInfo?.bigBlind ?? 2,
+      players: const [],
+      communityCards: const [],
+    );
+  }
+
   void _selectSeat(int seatIndex) {
     // Join the table at the selected seat
+    // This is the first join_table call - it happens when the user clicks a seat
+    debugPrint('GameScreen: User selected seat $seatIndex, joining table ${widget.tableId}');
     final controller = ref.read(gameControllerProvider.notifier);
     controller.joinTable(widget.tableId, seat: seatIndex);
   }
@@ -136,7 +183,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
 
   void _leaveTable() {
-    ref.read(gameControllerProvider.notifier).leaveTable();
+    // Only call leaveTable if we've actually joined (not in preview mode)
+    if (_gameState != null) {
+      ref.read(gameControllerProvider.notifier).leaveTable();
+    }
     context.go('/lobby');
   }
 
@@ -199,8 +249,13 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       );
       next.whenData((state) {
         debugPrint(
-          'GameScreen: Received game state for table ${state.tableId}, players: ${state.players.length}',
+          'GameScreen: Received game state for table ${state.tableId}, players: ${state.players.length}, maxPlayers: ${state.maxPlayers}',
         );
+        if (_tableInfo != null && state.maxPlayers != _tableInfo!.maxPlayers) {
+          debugPrint(
+            'GameScreen: WARNING - maxPlayers mismatch! tableInfo: ${_tableInfo!.maxPlayers}, gameState: ${state.maxPlayers}. Using tableInfo value.',
+          );
+        }
         setState(() => _gameState = state);
       });
       next.whenOrNull(
@@ -235,6 +290,29 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     });
 
     final controllerState = ref.watch(gameControllerProvider);
+    
+    // Determine if we have enough data to show the table
+    // In preview mode, we need _tableInfo to know the correct seat count
+    final hasGameState = _gameState != null;
+    final hasTableInfo = _tableInfo != null;
+    final canShowTable = hasGameState || hasTableInfo;
+    
+    // Use actual game state if available, otherwise create a preview state
+    // IMPORTANT: Always use _tableInfo.maxPlayers when available to ensure
+    // consistent seat count between preview and joined states
+    GameState displayState;
+    if (_gameState != null) {
+      // Use game state but override maxPlayers from tableInfo for consistency
+      if (_tableInfo != null && _gameState!.maxPlayers != _tableInfo!.maxPlayers) {
+        debugPrint('GameScreen: Overriding maxPlayers from ${_gameState!.maxPlayers} to ${_tableInfo!.maxPlayers}');
+        displayState = _gameState!.copyWith(maxPlayers: _tableInfo!.maxPlayers);
+      } else {
+        displayState = _gameState!;
+      }
+    } else {
+      displayState = _createPreviewState();
+    }
+    final isPreviewMode = !hasGameState;
 
     return Scaffold(
       body: Container(
@@ -255,20 +333,22 @@ class _GameScreenState extends ConsumerState<GameScreen> {
             children: [
               // Top bar
               _buildTopBar(),
-              // Spectator banner (if not seated)
-              if (_gameState != null && _gameState!.me == null)
+              // Preview banner (if not yet joined) or Spectator banner (if joined but not seated)
+              if (isPreviewMode && canShowTable)
+                _buildPreviewBanner()
+              else if (_gameState != null && _gameState!.me == null)
                 _buildSpectatorBanner(),
               // Main game area
               Expanded(
-                child: _gameState == null
+                child: !controllerState.isAuthenticated || !canShowTable
                     ? _buildLoadingState(controllerState)
                     : PokerTable(
-                        gameState: _gameState!,
+                        gameState: displayState,
                         onAction: _sendAction,
-                        onSeatSelected: _gameState!.me == null
+                        onSeatSelected: displayState.me == null
                             ? _selectSeat
                             : null,
-                        onChangeSeat: _gameState!.me != null
+                        onChangeSeat: !isPreviewMode && displayState.me != null
                             ? _changeSeat
                             : null,
                       ),
@@ -369,7 +449,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
             child: Column(
               children: [
                 Text(
-                  widget.tableId,
+                  _tableInfo?.name ?? widget.tableId,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -379,6 +459,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 if (_gameState != null)
                   Text(
                     '${_gameState!.smallBlind}/${_gameState!.bigBlind} blinds',
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  )
+                else if (_tableInfo != null)
+                  Text(
+                    '${_tableInfo!.smallBlind}/${_tableInfo!.bigBlind} blinds',
                     style: const TextStyle(color: Colors.white54, fontSize: 12),
                   ),
               ],
@@ -431,6 +516,33 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           const CircularProgressIndicator(color: PokerTheme.goldAccent),
           const SizedBox(height: 16),
           Text(message, style: const TextStyle(color: Colors.white54)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPreviewBanner() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: PokerTheme.chipBlue.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: PokerTheme.chipBlue.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.chair, color: PokerTheme.chipBlue, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Select a seat to join the table',
+              style: TextStyle(
+                color: PokerTheme.chipBlue,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
         ],
       ),
     );

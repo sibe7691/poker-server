@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+
 import '../core/theme.dart';
 import '../core/utils.dart';
 import '../models/player.dart';
@@ -42,8 +43,7 @@ class PlayerSeat extends StatelessWidget {
         _buildPlayerInfo(context),
         const SizedBox(height: 4),
         // Current bet (if any)
-        if (player.currentBet > 0)
-          _buildBetChip(),
+        if (player.currentBet > 0) _buildBetChip(),
       ],
     );
   }
@@ -70,11 +70,7 @@ class PlayerSeat extends StatelessWidget {
     if (player.isFolded) {
       return Opacity(
         opacity: 0.3,
-        child: HoleCards(
-          cards: const [],
-          isHidden: true,
-          isSmall: true,
-        ),
+        child: HoleCards(cards: const [], isHidden: true, isSmall: true),
       );
     }
 
@@ -96,18 +92,24 @@ class PlayerSeat extends StatelessWidget {
           colors: player.isFolded
               ? [Colors.grey.shade800, Colors.grey.shade900]
               : isCurrentTurn
-                  ? [PokerTheme.goldAccent.withValues(alpha: 0.3), PokerTheme.surfaceLight]
-                  : player.isYou
-                      ? [PokerTheme.tableFelt.withValues(alpha: 0.5), PokerTheme.surfaceLight]
-                      : [PokerTheme.surfaceLight, PokerTheme.surfaceDark],
+              ? [
+                  PokerTheme.goldAccent.withValues(alpha: 0.3),
+                  PokerTheme.surfaceLight,
+                ]
+              : player.isYou
+              ? [
+                  PokerTheme.tableFelt.withValues(alpha: 0.5),
+                  PokerTheme.surfaceLight,
+                ]
+              : [PokerTheme.surfaceLight, PokerTheme.surfaceDark],
         ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isCurrentTurn
               ? PokerTheme.goldAccent
               : player.isYou
-                  ? PokerTheme.tableFelt
-                  : Colors.transparent,
+              ? PokerTheme.tableFelt
+              : Colors.transparent,
           width: isCurrentTurn ? 2 : 1,
         ),
         boxShadow: isCurrentTurn
@@ -143,11 +145,7 @@ class PlayerSeat extends StatelessWidget {
               if (!player.isConnected)
                 const Padding(
                   padding: EdgeInsets.only(left: 4),
-                  child: Icon(
-                    Icons.wifi_off,
-                    size: 14,
-                    color: Colors.orange,
-                  ),
+                  child: Icon(Icons.wifi_off, size: 14, color: Colors.orange),
                 ),
             ],
           ),
@@ -216,18 +214,16 @@ class PlayerSeat extends StatelessWidget {
           fontSize: 12,
         ),
       ),
-    ).animate().scale(
-      duration: 200.ms,
-      curve: Curves.easeOut,
-    );
+    ).animate().scale(duration: 200.ms, curve: Curves.easeOut);
   }
 }
 
 /// Empty seat widget for available positions
-class EmptySeat extends StatelessWidget {
+class EmptySeat extends StatefulWidget {
   final int seatNumber;
   final VoidCallback? onTap;
-  final bool isChangeSeat; // Whether this is for changing seats (vs initial seat selection)
+  final bool
+  isChangeSeat; // Whether this is for changing seats (vs initial seat selection)
 
   const EmptySeat({
     super.key,
@@ -237,85 +233,118 @@ class EmptySeat extends StatelessWidget {
   });
 
   @override
+  State<EmptySeat> createState() => _EmptySeatState();
+}
+
+class _EmptySeatState extends State<EmptySeat> {
+  bool _isPressed = false;
+
+  @override
   Widget build(BuildContext context) {
-    final isSelectable = onTap != null;
-    
+    final isSelectable = widget.onTap != null;
+
     return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelectable
-              ? PokerTheme.tableFelt.withValues(alpha: 0.3)
-              : PokerTheme.surfaceDark.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelectable 
-                ? (isChangeSeat ? PokerTheme.chipBlue : PokerTheme.goldAccent) 
-                : Colors.white24,
-            width: isSelectable ? 2 : 1,
-            style: BorderStyle.solid,
+      onTap: widget.onTap,
+      onTapDown: isSelectable ? (_) => setState(() => _isPressed = true) : null,
+      onTapUp: isSelectable ? (_) => setState(() => _isPressed = false) : null,
+      onTapCancel: isSelectable
+          ? () => setState(() => _isPressed = false)
+          : null,
+      child: AnimatedScale(
+        scale: _isPressed ? 0.92 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelectable
+                ? PokerTheme.tableFelt.withValues(alpha: 0.3)
+                : PokerTheme.surfaceDark.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelectable
+                  ? (widget.isChangeSeat
+                        ? PokerTheme.chipBlue
+                        : PokerTheme.goldAccent)
+                  : Colors.white24,
+              width: isSelectable ? 2 : 1,
+              style: BorderStyle.solid,
+            ),
+            boxShadow: isSelectable
+                ? [
+                    BoxShadow(
+                      color:
+                          (widget.isChangeSeat
+                                  ? PokerTheme.chipBlue
+                                  : PokerTheme.goldAccent)
+                              .withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
           ),
-          boxShadow: isSelectable
-              ? [
-                  BoxShadow(
-                    color: (isChangeSeat ? PokerTheme.chipBlue : PokerTheme.goldAccent)
-                        .withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    spreadRadius: 1,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Seat number badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                margin: const EdgeInsets.only(bottom: 4),
+                decoration: BoxDecoration(
+                  color: isSelectable
+                      ? (widget.isChangeSeat
+                                ? PokerTheme.chipBlue
+                                : PokerTheme.goldAccent)
+                            .withValues(alpha: 0.2)
+                      : PokerTheme.surfaceDark.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '#${widget.seatNumber}',
+                  style: TextStyle(
+                    color: isSelectable
+                        ? (widget.isChangeSeat
+                              ? PokerTheme.chipBlue
+                              : PokerTheme.goldAccent)
+                        : Colors.white54,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
                   ),
-                ]
-              : null,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Seat number badge
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              margin: const EdgeInsets.only(bottom: 4),
-              decoration: BoxDecoration(
-                color: isSelectable 
-                    ? (isChangeSeat ? PokerTheme.chipBlue : PokerTheme.goldAccent)
-                        .withValues(alpha: 0.2)
-                    : PokerTheme.surfaceDark.withValues(alpha: 0.7),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '#$seatNumber',
-                style: TextStyle(
-                  color: isSelectable 
-                      ? (isChangeSeat ? PokerTheme.chipBlue : PokerTheme.goldAccent)
-                      : Colors.white54,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
-            Icon(
-              isSelectable 
-                  ? (isChangeSeat ? Icons.swap_horiz : Icons.add_circle_outline) 
-                  : Icons.person_add_outlined,
-              color: isSelectable 
-                  ? (isChangeSeat ? PokerTheme.chipBlue : PokerTheme.goldAccent) 
-                  : Colors.white38,
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              isSelectable 
-                  ? (isChangeSeat ? 'Move Here' : 'Sit Here') 
-                  : 'Empty',
-              style: TextStyle(
-                color: isSelectable 
-                    ? (isChangeSeat ? PokerTheme.chipBlue : PokerTheme.goldAccent) 
+              Icon(
+                isSelectable
+                    ? (widget.isChangeSeat
+                          ? Icons.swap_horiz
+                          : Icons.add_circle_outline)
+                    : Icons.person_add_outlined,
+                color: isSelectable
+                    ? (widget.isChangeSeat
+                          ? PokerTheme.chipBlue
+                          : PokerTheme.goldAccent)
                     : Colors.white38,
-                fontSize: 12,
-                fontWeight: isSelectable ? FontWeight.w600 : FontWeight.normal,
+                size: 24,
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                isSelectable
+                    ? (widget.isChangeSeat ? 'Move Here' : 'Sit Here')
+                    : 'Empty',
+                style: TextStyle(
+                  color: isSelectable
+                      ? (widget.isChangeSeat
+                            ? PokerTheme.chipBlue
+                            : PokerTheme.goldAccent)
+                      : Colors.white38,
+                  fontSize: 12,
+                  fontWeight: isSelectable
+                      ? FontWeight.w600
+                      : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

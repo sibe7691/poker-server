@@ -43,6 +43,11 @@ class LeaveTableMessage(BaseModel):
     type: Literal["leave_table"] = "leave_table"
 
 
+class StandUpMessage(BaseModel):
+    """Stand up from seat (become spectator)."""
+    type: Literal["stand_up"] = "stand_up"
+
+
 class ActionMessage(BaseModel):
     """Game action (fold, check, call, bet, raise, all_in)."""
     type: Literal["action"] = "action"
@@ -114,6 +119,11 @@ class EndSessionMessage(BaseModel):
     type: Literal["end_session"] = "end_session"
 
 
+class PingMessage(BaseModel):
+    """Keep-alive ping from client."""
+    type: Literal["ping"] = "ping"
+
+
 # Union of all client messages
 ClientMessage = Union[
     AuthMessage,
@@ -122,6 +132,7 @@ ClientMessage = Union[
     RefreshTokenMessage,
     JoinTableMessage,
     LeaveTableMessage,
+    StandUpMessage,
     ActionMessage,
     ChatMessage,
     StartGameMessage,
@@ -133,6 +144,7 @@ ClientMessage = Union[
     GetLedgerMessage,
     GetStandingsMessage,
     EndSessionMessage,
+    PingMessage,
 ]
 
 
@@ -165,6 +177,7 @@ class GameStateMessage(BaseModel):
     small_blind: int
     big_blind: int
     pot: int
+    max_players: int = 10
     community_cards: list[str]
     players: list[dict]
     current_player: Optional[str]
@@ -282,6 +295,11 @@ class TablesListMessage(BaseModel):
     tables: list[dict]
 
 
+class PongMessage(BaseModel):
+    """Keep-alive pong response."""
+    type: Literal["pong"] = "pong"
+
+
 # Union of all server messages
 ServerMessage = Union[
     ErrorMessage,
@@ -322,6 +340,7 @@ def parse_client_message(data: dict) -> ClientMessage:
         "refresh_token": RefreshTokenMessage,
         "join_table": JoinTableMessage,
         "leave_table": LeaveTableMessage,
+        "stand_up": StandUpMessage,
         "action": ActionMessage,
         "chat": ChatMessage,
         "start_game": StartGameMessage,
@@ -333,6 +352,7 @@ def parse_client_message(data: dict) -> ClientMessage:
         "get_ledger": GetLedgerMessage,
         "get_standings": GetStandingsMessage,
         "end_session": EndSessionMessage,
+        "ping": PingMessage,
     }
     
     if msg_type not in type_map:

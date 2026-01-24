@@ -12,6 +12,7 @@ from src.protocol.messages import (
     RefreshTokenMessage,
     JoinTableMessage,
     LeaveTableMessage,
+    StandUpMessage,
     ActionMessage,
     ChatMessage,
     StartGameMessage,
@@ -23,6 +24,7 @@ from src.protocol.messages import (
     GetLedgerMessage,
     GetStandingsMessage,
     EndSessionMessage,
+    PingMessage,
     ErrorMessage,
     AuthSuccessMessage,
     GameStateMessage,
@@ -34,6 +36,7 @@ from src.protocol.messages import (
     ChatBroadcastMessage,
     TableCreatedMessage,
     TableDeletedMessage,
+    PongMessage,
 )
 from src.auth.middleware import AuthMiddleware, AuthenticatedUser
 from src.auth.jwt_handler import TokenError, refresh_access_token
@@ -104,12 +107,19 @@ class MessageHandler:
                 code="AUTH_REQUIRED"
             ).model_dump(), None
         
+        # Handle ping (keep-alive)
+        if isinstance(message, PingMessage):
+            return PongMessage().model_dump(), user
+        
         # Route to appropriate handler
         if isinstance(message, JoinTableMessage):
             return await self._handle_join_table(message, user), user
         
         if isinstance(message, LeaveTableMessage):
             return await self._handle_leave_table(user), user
+        
+        if isinstance(message, StandUpMessage):
+            return await self._handle_stand_up(user), user
         
         if isinstance(message, ActionMessage):
             return await self._handle_action(message, user), user
@@ -208,7 +218,11 @@ class MessageHandler:
         message: JoinTableMessage,
         user: AuthenticatedUser
     ) -> dict:
-        """Handle joining a table."""
+        """Handle joining a table.
+        
+        If seat is None, user joins as spectator.
+        If seat is specified, user takes that seat.
+        """
         try:
             # Check if table exists (tables must be created by admin first)
             table = self.server.tables.get(message.table_id)
@@ -218,21 +232,98 @@ class MessageHandler:
                     code="TABLE_NOT_FOUND"
                 ).model_dump()
             
-            # Check if already at table
+            # Check if already seated at table
             existing = table.get_player_by_id(user.user_id)
-            if existing:
-                # Return current state
+            
+            # Log for debugging seat assignment issues
+            logger.debug(
+                f"join_table: user={user.username}, requested_seat={message.seat} (type={type(message.seat).__name__}), "
+                f"existing={'seat ' + str(existing.seat) if existing else 'None'}"
+            )
+            
+            # Handle reconnection case: user exists but is disconnected
+            # This handles the edge case where session expired but player is still in table
+            if existing and existing.is_disconnected:
+                logger.info(f"Reconnecting disconnected player {user.username} at seat {existing.seat}")
+                existing.is_disconnected = False
+                
+                # If they requested a different seat, allow seat change
+                if message.seat is not None and message.seat != existing.seat:
+                    # Validate new seat
+                    if message.seat < 0 or message.seat >= table.max_players:
+                        return ErrorMessage(
+                            message=f"Invalid seat {message.seat}. Must be 0-{table.max_players - 1}.",
+                            code="INVALID_SEAT"
+                        ).model_dump()
+                    if message.seat in table.players:
+                        return ErrorMessage(
+                            message=f"Seat {message.seat} is already taken.",
+                            code="SEAT_TAKEN"
+                        ).model_dump()
+                    
+                    # Move to new seat
+                    old_seat = existing.seat
+                    del table.players[old_seat]
+                    existing.seat = message.seat
+                    table.players[message.seat] = existing
+                    logger.info(f"{user.username} moved from seat {old_seat} to seat {message.seat}")
+                
+                # Track user's table
+                self.server.user_tables[user.user_id] = message.table_id
+                
+                # Broadcast updated game state
+                await self._broadcast_game_state(message.table_id)
+                
+                # Return their state
                 return GameStateMessage(
                     **table.get_state_for_player(user.user_id)
                 ).model_dump()
             
-            # Get seat
-            seat = message.seat
-            if seat is None:
-                seat = table.get_next_available_seat()
+            # If no seat specified, join as spectator
+            if message.seat is None:
+                if existing:
+                    # Already seated - return current state
+                    return GameStateMessage(
+                        **table.get_state_for_player(user.user_id)
+                    ).model_dump()
+                
+                # Join as spectator
+                self.server.add_spectator(user.user_id, message.table_id)
+                self.server.user_tables[user.user_id] = message.table_id
+                
+                logger.info(f"{user.username} joined table {message.table_id} as spectator")
+                
+                # Return spectator state
+                return GameStateMessage(
+                    **table.get_state_for_spectator()
+                ).model_dump()
             
-            if seat is None:
-                return ErrorMessage(message="Table is full", code="TABLE_FULL").model_dump()
+            # Seat specified - take that seat
+            seat = message.seat
+            
+            # Check if seat is valid
+            if seat < 0 or seat >= table.max_players:
+                return ErrorMessage(
+                    message=f"Invalid seat {seat}. Must be 0-{table.max_players - 1}.",
+                    code="INVALID_SEAT"
+                ).model_dump()
+            
+            # Check if seat is available
+            if seat in table.players:
+                return ErrorMessage(
+                    message=f"Seat {seat} is already taken.",
+                    code="SEAT_TAKEN"
+                ).model_dump()
+            
+            # If already seated at a different seat, that's not allowed (use stand_up first)
+            if existing:
+                return ErrorMessage(
+                    message="Already seated. Use stand_up first to change seats.",
+                    code="ALREADY_SEATED"
+                ).model_dump()
+            
+            # Remove from spectators if was spectating
+            self.server.remove_spectator(user.user_id, message.table_id)
             
             # Create player
             from src.game.player import Player
@@ -249,7 +340,7 @@ class MessageHandler:
             # Track user's table
             self.server.user_tables[user.user_id] = message.table_id
             
-            # Broadcast join
+            # Broadcast join to players and spectators
             await self.server.broadcast_to_table(
                 message.table_id,
                 PlayerJoinedMessage(
@@ -260,7 +351,7 @@ class MessageHandler:
                 ).model_dump()
             )
             
-            # Broadcast updated game state to ALL players at table
+            # Broadcast updated game state to ALL players and spectators at table
             await self._broadcast_game_state(message.table_id)
             
             # Auto-start if enough players with chips and game is waiting
@@ -276,7 +367,7 @@ class MessageHandler:
             return ErrorMessage(message=str(e), code="JOIN_ERROR").model_dump()
     
     async def _handle_leave_table(self, user: AuthenticatedUser) -> dict:
-        """Handle leaving a table."""
+        """Handle leaving a table (both players and spectators)."""
         table_id = self.server.get_player_table(user.user_id)
         if not table_id:
             return ErrorMessage(message="Not at a table", code="NOT_AT_TABLE").model_dump()
@@ -292,8 +383,65 @@ class MessageHandler:
                         username=user.username,
                     ).model_dump()
                 )
+                # Broadcast updated state
+                await self._broadcast_game_state(table_id)
+        
+        # Remove from spectators if was spectating
+        self.server.remove_spectator(user.user_id, table_id)
+        
+        # Remove table tracking
+        if user.user_id in self.server.user_tables:
+            del self.server.user_tables[user.user_id]
         
         return {"type": "left_table", "table_id": table_id}
+    
+    async def _handle_stand_up(self, user: AuthenticatedUser) -> dict:
+        """Handle standing up from seat (become spectator)."""
+        table_id = self.server.get_player_table(user.user_id)
+        if not table_id:
+            return ErrorMessage(message="Not at a table", code="NOT_AT_TABLE").model_dump()
+        
+        table = self.server.tables.get(table_id)
+        if not table:
+            return ErrorMessage(message="Table not found", code="TABLE_NOT_FOUND").model_dump()
+        
+        player = table.get_player_by_id(user.user_id)
+        if not player:
+            # Already a spectator
+            return GameStateMessage(
+                **table.get_state_for_spectator()
+            ).model_dump()
+        
+        # Check if in active hand
+        if table.state.value != "waiting" and player.is_active and not player.is_folded:
+            return ErrorMessage(
+                message="Cannot stand up during active hand. Fold first or wait for hand to finish.",
+                code="HAND_IN_PROGRESS"
+            ).model_dump()
+        
+        # Remove from table
+        table.remove_player(user.user_id)
+        
+        # Add as spectator
+        self.server.add_spectator(user.user_id, table_id)
+        
+        # Broadcast that player left seat
+        await self.server.broadcast_to_table(
+            table_id,
+            PlayerLeftMessage(
+                user_id=user.user_id,
+                username=user.username,
+            ).model_dump()
+        )
+        
+        # Broadcast updated game state
+        await self._broadcast_game_state(table_id)
+        
+        logger.info(f"{user.username} stood up from table {table_id}")
+        
+        return GameStateMessage(
+            **table.get_state_for_spectator()
+        ).model_dump()
     
     async def _handle_action(
         self,
@@ -572,14 +720,24 @@ class MessageHandler:
         return await self._handle_get_standings(user)
     
     async def _broadcast_game_state(self, table_id: str) -> None:
-        """Broadcast game state to all players at table."""
+        """Broadcast game state to all players and spectators at table."""
         table = self.server.tables.get(table_id)
         if not table:
             return
         
+        # Send to seated players
         for player in table.players.values():
             state = table.get_state_for_player(player.user_id)
             await self.server.send_to_user(
                 player.user_id,
                 GameStateMessage(**state).model_dump()
+            )
+        
+        # Send to spectators
+        spectators = self.server.get_spectators(table_id)
+        spectator_state = table.get_state_for_spectator()
+        for user_id in spectators:
+            await self.server.send_to_user(
+                user_id,
+                GameStateMessage(**spectator_state).model_dump()
             )
