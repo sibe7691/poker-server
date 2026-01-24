@@ -104,6 +104,10 @@ class PokerTable extends StatelessWidget {
     );
   }
 
+  // Fixed dimensions for seat containers to ensure stable positioning
+  static const double _seatWidth = 120.0;
+  static const double _seatHeight = 140.0;
+
   List<Widget> _buildPlayerSeats(
     BuildContext context,
     BoxConstraints constraints,
@@ -138,26 +142,32 @@ class PokerTable extends StatelessWidget {
       final canChangeSeat =
           isSeated && onChangeSeat != null && !gameState.isInProgress;
 
+      // Use fixed-size container to ensure consistent positioning
+      // regardless of whether seat is empty or occupied
       seats.add(
         Positioned(
-          left: x - 60, // Center the widget (approximately 120px wide)
-          top: y - 50, // Center the widget (approximately 100px tall)
-          child: player != null
-              ? PlayerSeat(
-                  player: player,
-                  seatNumber: i + 1,
-                  isDealer: gameState.dealerSeat == i,
-                  isCurrentTurn: gameState.currentPlayerId == player.userId,
-                  isSmallBlind: _isSmallBlind(i),
-                  isBigBlind: _isBigBlind(i),
-                )
-              : EmptySeat(
-                  seatNumber: i + 1,
-                  onTap: onSeatSelected != null
-                      ? () => onSeatSelected!(i)
-                      : (canChangeSeat ? () => onChangeSeat!(i) : null),
-                  isChangeSeat: canChangeSeat && onSeatSelected == null,
-                ),
+          left: x - _seatWidth / 2,
+          top: y - _seatHeight / 2,
+          width: _seatWidth,
+          height: _seatHeight,
+          child: Center(
+            child: player != null
+                ? PlayerSeat(
+                    player: player,
+                    seatNumber: i + 1,
+                    isDealer: gameState.dealerSeat == i,
+                    isCurrentTurn: gameState.currentPlayerId == player.userId,
+                    isSmallBlind: _isSmallBlind(i),
+                    isBigBlind: _isBigBlind(i),
+                  )
+                : EmptySeat(
+                    seatNumber: i + 1,
+                    onTap: onSeatSelected != null
+                        ? () => onSeatSelected!(i)
+                        : (canChangeSeat ? () => onChangeSeat!(i) : null),
+                    isChangeSeat: canChangeSeat && onSeatSelected == null,
+                  ),
+          ),
         ),
       );
     }

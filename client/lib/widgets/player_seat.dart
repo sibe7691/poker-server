@@ -29,7 +29,10 @@ class PlayerSeat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    // Players with 0 chips are shown with reduced opacity
+    final hasNoChips = player.chips == 0 && !player.isAllIn;
+    
+    final content = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         // Seat number badge
@@ -46,6 +49,8 @@ class PlayerSeat extends StatelessWidget {
         if (player.currentBet > 0) _buildBetChip(),
       ],
     );
+    
+    return hasNoChips ? Opacity(opacity: 0.5, child: content) : content;
   }
 
   Widget _buildSeatNumber() {
