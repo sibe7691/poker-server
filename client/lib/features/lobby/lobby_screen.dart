@@ -70,6 +70,19 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     context.go('/game/${table.tableId}');
   }
 
+  void _deleteTable(TableInfo table) {
+    final gameController = ref.read(gameControllerProvider.notifier);
+    gameController.deleteTable(table.tableId);
+
+    // Show feedback
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Table "${table.name}" deleted'),
+        backgroundColor: PokerTheme.tableFelt,
+      ),
+    );
+  }
+
   void _logout() async {
     final authNotifier = ref.read(authProvider.notifier);
     final gameController = ref.read(gameControllerProvider.notifier);
@@ -230,9 +243,11 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         padding: const EdgeInsets.all(16),
         itemCount: _tables.length,
         itemBuilder: (context, index) {
+          final table = _tables[index];
           return _TableCard(
-            table: _tables[index],
-            onJoin: () => _viewTable(_tables[index]),
+            table: table,
+            onJoin: () => _viewTable(table),
+            onDelete: () => _deleteTable(table),
           );
         },
       ),
@@ -240,87 +255,157 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   }
 }
 
-class _TableCard extends StatelessWidget {
+class _TableCard extends ConsumerWidget {
   final TableInfo table;
   final VoidCallback onJoin;
+  final VoidCallback onDelete;
 
-  const _TableCard({required this.table, required this.onJoin});
+  const _TableCard({
+    required this.table,
+    required this.onJoin,
+    required this.onDelete,
+  });
+
+  void _showContextMenu(BuildContext context, Offset position, bool isAdmin) {
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        position & const Size(40, 40),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        if (isAdmin)
+          const PopupMenuItem<String>(
+            value: 'delete',
+            child: Row(
+              children: [
+                Icon(Icons.delete, color: Colors.red, size: 20),
+                SizedBox(width: 8),
+                Text('Delete Table', style: TextStyle(color: Colors.red)),
+              ],
+            ),
+          ),
+      ],
+    ).then((value) {
+      if (value == 'delete') {
+        _showDeleteConfirmation(context);
+      }
+    });
+  }
+
+  void _showDeleteConfirmation(BuildContext context) {
+    showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Table'),
+        content: Text(
+          'Are you sure you want to delete "${table.name}"?\n\n'
+          'This will remove all players from the table.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    ).then((confirmed) {
+      if (confirmed == true) {
+        onDelete();
+      }
+    });
+  }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final bool isFull = !table.hasSeats;
+    final bool isAdmin = ref.watch(isAdminProvider);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: isFull ? null : onJoin,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              // Table icon
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: table.state == 'waiting'
-                      ? PokerTheme.tableFelt.withValues(alpha: 0.2)
-                      : PokerTheme.goldAccent.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
+      child: GestureDetector(
+        onLongPressStart: isAdmin
+            ? (details) =>
+                _showContextMenu(context, details.globalPosition, isAdmin)
+            : null,
+        child: InkWell(
+          onTap: isFull ? null : onJoin,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Table icon
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: table.state == 'waiting'
+                        ? PokerTheme.tableFelt.withValues(alpha: 0.2)
+                        : PokerTheme.goldAccent.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.table_restaurant,
+                    color: table.state == 'waiting'
+                        ? PokerTheme.tableFelt
+                        : PokerTheme.goldAccent,
+                    size: 28,
+                  ),
                 ),
-                child: Icon(
-                  Icons.table_restaurant,
-                  color: table.state == 'waiting'
-                      ? PokerTheme.tableFelt
-                      : PokerTheme.goldAccent,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(width: 16),
-              // Table info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      table.name,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                const SizedBox(width: 16),
+                // Table info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        table.name,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        _InfoChip(
-                          icon: Icons.people,
-                          label: table.playersDisplay,
-                          color: isFull ? Colors.red : Colors.green,
-                        ),
-                        const SizedBox(width: 8),
-                        _InfoChip(
-                          icon: Icons.attach_money,
-                          label: table.blindsDisplay,
-                          color: PokerTheme.goldAccent,
-                        ),
-                        const SizedBox(width: 8),
-                        _InfoChip(
-                          icon: table.state == 'waiting'
-                              ? Icons.hourglass_empty
-                              : Icons.play_arrow,
-                          label: table.state.toUpperCase(),
-                          color: table.state == 'waiting'
-                              ? Colors.white54
-                              : PokerTheme.tableFelt,
-                        ),
-                      ],
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          _InfoChip(
+                            icon: Icons.people,
+                            label: table.playersDisplay,
+                            color: isFull ? Colors.red : Colors.green,
+                          ),
+                          const SizedBox(width: 8),
+                          _InfoChip(
+                            icon: Icons.attach_money,
+                            label: table.blindsDisplay,
+                            color: PokerTheme.goldAccent,
+                          ),
+                          const SizedBox(width: 8),
+                          _InfoChip(
+                            icon: table.state == 'waiting'
+                                ? Icons.hourglass_empty
+                                : Icons.play_arrow,
+                            label: table.state.toUpperCase(),
+                            color: table.state == 'waiting'
+                                ? Colors.white54
+                                : PokerTheme.tableFelt,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

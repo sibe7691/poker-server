@@ -187,6 +187,9 @@ class GameServer:
         await game_store.delete_table(table_id)
         
         logger.info(f"Deleted table {table_id}")
+        
+        # Notify all connected clients about the updated tables list
+        await self.broadcast_tables_update()
 
     def _setup_table_callbacks(self, table: Table):
         """Set up event callbacks for a table."""
@@ -311,6 +314,31 @@ class GameServer:
             if exclude_user and user_id == exclude_user:
                 continue
             await self.send_to_user(user_id, message)
+
+    async def broadcast_to_all(self, message: dict):
+        """Broadcast a message to all connected users."""
+        for user_id in list(self.connections.keys()):
+            await self.send_to_user(user_id, message)
+
+    def get_tables_list(self) -> list[dict]:
+        """Get list of tables formatted for clients."""
+        return [
+            {
+                "table_id": table_id,
+                "players": len(table.players),
+                "max_players": table.max_players,
+                "state": table.state.value,
+                "small_blind": table.small_blind,
+                "big_blind": table.big_blind,
+            }
+            for table_id, table in self.tables.items()
+        ]
+
+    async def broadcast_tables_update(self):
+        """Broadcast updated tables list to all connected users."""
+        from src.protocol.messages import TablesListMessage
+        message = TablesListMessage(tables=self.get_tables_list())
+        await self.broadcast_to_all(message.model_dump())
 
 
 # Global server instance
