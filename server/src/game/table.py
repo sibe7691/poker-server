@@ -338,7 +338,8 @@ class Table:
         await self._emit("player_action", {
             "user_id": user_id,
             "username": current_player.username,
-            "action": action.to_dict(),
+            "action": action.type.value,
+            "amount": action.amount,
         })
         
         # Check if round is complete

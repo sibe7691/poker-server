@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 class AuthState extends Equatable {
   final String? userId;
   final String? username;
+  final String? role;
   final String? accessToken;
   final String? refreshToken;
   final bool isLoading;
@@ -12,6 +13,7 @@ class AuthState extends Equatable {
   const AuthState({
     this.userId,
     this.username,
+    this.role,
     this.accessToken,
     this.refreshToken,
     this.isLoading = false,
@@ -21,9 +23,13 @@ class AuthState extends Equatable {
   /// Whether the user is authenticated
   bool get isAuthenticated => accessToken != null && userId != null;
 
+  /// Whether the user is an admin
+  bool get isAdmin => role == 'admin';
+
   AuthState copyWith({
     String? userId,
     String? username,
+    String? role,
     String? accessToken,
     String? refreshToken,
     bool? isLoading,
@@ -32,6 +38,7 @@ class AuthState extends Equatable {
     return AuthState(
       userId: userId ?? this.userId,
       username: username ?? this.username,
+      role: role ?? this.role,
       accessToken: accessToken ?? this.accessToken,
       refreshToken: refreshToken ?? this.refreshToken,
       isLoading: isLoading ?? this.isLoading,
@@ -57,10 +64,12 @@ class AuthState extends Equatable {
     required String username,
     required String accessToken,
     required String refreshToken,
+    String? role,
   }) {
     return AuthState(
       userId: userId,
       username: username,
+      role: role,
       accessToken: accessToken,
       refreshToken: refreshToken,
       isLoading: false,
@@ -69,6 +78,6 @@ class AuthState extends Equatable {
 
   @override
   List<Object?> get props => [
-    userId, username, accessToken, refreshToken, isLoading, error
+    userId, username, role, accessToken, refreshToken, isLoading, error
   ];
 }

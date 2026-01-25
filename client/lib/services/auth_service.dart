@@ -110,8 +110,9 @@ class AuthService {
   Future<AuthState?> refreshTokenWithUserInfo(
     String refreshToken,
     String userId,
-    String username,
-  ) async {
+    String username, {
+    String? role,
+  }) async {
     try {
       if (kIsWeb) {
         debugPrint('Web: Calling refresh endpoint...');
@@ -147,6 +148,7 @@ class AuthService {
           username: data['username'] as String? ?? username,
           accessToken: newAccessToken,
           refreshToken: newRefreshToken,
+          role: data['role'] as String? ?? role,
         );
 
         // Save updated tokens
@@ -154,6 +156,9 @@ class AuthService {
         await _write(StorageKeys.username, state.username!);
         await _write(StorageKeys.accessToken, state.accessToken!);
         await _write(StorageKeys.refreshToken, state.refreshToken!);
+        if (state.role != null) {
+          await _write(StorageKeys.role, state.role!);
+        }
 
         return state;
       }
@@ -195,6 +200,7 @@ class AuthService {
       username: data['username'] as String,
       accessToken: data['access_token'] as String,
       refreshToken: data['refresh_token'] as String,
+      role: data['role'] as String?,
     );
 
     // Persist to storage (uses SharedPreferences on web, SecureStorage on mobile)
@@ -202,6 +208,9 @@ class AuthService {
     await _write(StorageKeys.username, state.username!);
     await _write(StorageKeys.accessToken, state.accessToken!);
     await _write(StorageKeys.refreshToken, state.refreshToken!);
+    if (state.role != null) {
+      await _write(StorageKeys.role, state.role!);
+    }
 
     if (kIsWeb) {
       debugPrint('Web: Auth tokens saved to localStorage');
@@ -221,10 +230,11 @@ class AuthService {
       final username = await _read(StorageKeys.username);
       final accessToken = await _read(StorageKeys.accessToken);
       final refreshToken = await _read(StorageKeys.refreshToken);
+      final role = await _read(StorageKeys.role);
 
       if (kIsWeb) {
         debugPrint(
-          'Web: userId=${userId != null}, username=${username != null}, accessToken=${accessToken != null}, refreshToken=${refreshToken != null}',
+          'Web: userId=${userId != null}, username=${username != null}, accessToken=${accessToken != null}, refreshToken=${refreshToken != null}, role=$role',
         );
       }
 
@@ -240,6 +250,7 @@ class AuthService {
           refreshToken,
           userId,
           username,
+          role: role,
         );
         if (refreshed != null) {
           if (kIsWeb) {
@@ -257,6 +268,7 @@ class AuthService {
           username: username,
           accessToken: accessToken,
           refreshToken: refreshToken,
+          role: role,
         );
       } else {
         if (kIsWeb) {
@@ -279,6 +291,7 @@ class AuthService {
     await _delete(StorageKeys.username);
     await _delete(StorageKeys.accessToken);
     await _delete(StorageKeys.refreshToken);
+    await _delete(StorageKeys.role);
     if (kIsWeb) {
       debugPrint('Web: Auth tokens cleared from localStorage');
     }

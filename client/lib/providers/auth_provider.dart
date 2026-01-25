@@ -80,3 +80,8 @@ final currentUserIdProvider = Provider<String?>((ref) {
 final currentUsernameProvider = Provider<String?>((ref) {
   return ref.watch(authProvider).username;
 });
+
+/// Is admin provider
+final isAdminProvider = Provider<bool>((ref) {
+  return ref.watch(authProvider).isAdmin;
+});

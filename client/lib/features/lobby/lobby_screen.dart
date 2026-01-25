@@ -329,15 +329,6 @@ class _TableCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // Join button
-              ElevatedButton(
-                onPressed: isFull ? null : onJoin,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isFull ? Colors.grey : PokerTheme.goldAccent,
-                  foregroundColor: isFull ? Colors.white54 : Colors.black,
-                ),
-                child: Text(isFull ? 'FULL' : 'JOIN'),
-              ),
             ],
           ),
         ),

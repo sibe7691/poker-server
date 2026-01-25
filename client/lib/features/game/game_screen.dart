@@ -10,6 +10,7 @@ import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../services/websocket_service.dart';
 import '../../widgets/widgets.dart';
+import 'cashier_dialog.dart';
 import 'hand_result_dialog.dart';
 import 'poker_table.dart';
 
@@ -342,28 +343,62 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               handNumber: _gameState!.handNumber,
             ),
           // Menu
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
-            onSelected: (value) {
-              if (value == 'start') {
-                ref.read(gameControllerProvider.notifier).startGame();
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'start',
-                child: Row(
-                  children: [
-                    Icon(Icons.play_arrow, size: 20),
-                    SizedBox(width: 8),
-                    Text('Start Game'),
-                  ],
-                ),
-              ),
-            ],
-          ),
+          _buildMenu(),
         ],
       ),
+    );
+  }
+
+  Widget _buildMenu() {
+    final isAdmin = ref.watch(isAdminProvider);
+
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert, color: Colors.white),
+      color: PokerTheme.surfaceDark,
+      onSelected: (value) {
+        if (value == 'start') {
+          ref.read(gameControllerProvider.notifier).startGame();
+        } else if (value == 'cashier') {
+          _showCashierDialog();
+        }
+      },
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: 'start',
+          child: Row(
+            children: [
+              Icon(Icons.play_arrow, size: 20, color: Colors.white70),
+              SizedBox(width: 8),
+              Text('Start Game', style: TextStyle(color: Colors.white)),
+            ],
+          ),
+        ),
+        // TODO: add cashier menu item only for admin
+        // if (isAdmin)
+        const PopupMenuItem(
+          value: 'cashier',
+          child: Row(
+            children: [
+              Icon(
+                Icons.account_balance,
+                size: 20,
+                color: PokerTheme.goldAccent,
+              ),
+              SizedBox(width: 8),
+              Text('Cashier', style: TextStyle(color: Colors.white)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showCashierDialog() {
+    if (_gameState == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => CashierDialog(gameState: _gameState!),
     );
   }
 

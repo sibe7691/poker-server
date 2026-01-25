@@ -121,6 +121,8 @@ class ServerMessageType {
   static const String playerAction = 'player_action';
   static const String playerJoined = 'player_joined';
   static const String playerLeft = 'player_left';
+  static const String playerDisconnected = 'player_disconnected';
+  static const String playerReconnected = 'player_reconnected';
   static const String handResult = 'hand_result';
   static const String chipsUpdated = 'chips_updated';
   static const String handStarted = 'hand_started';
@@ -466,6 +468,29 @@ class WebSocketService {
           );
           break;
 
+        case ServerMessageType.playerDisconnected:
+          final username = data['username'] as String? ?? 'Unknown';
+          final graceSeconds = data['grace_seconds'] as int? ?? 60;
+          WebSocketLogger.info('PLAYER', 'Player disconnected: $username (grace: ${graceSeconds}s)');
+          _playerEventController.add(
+            PlayerEvent(
+              type: PlayerEventType.disconnected,
+              username: username,
+            ),
+          );
+          break;
+
+        case ServerMessageType.playerReconnected:
+          final username = data['username'] as String? ?? 'Unknown';
+          WebSocketLogger.info('PLAYER', 'Player reconnected: $username');
+          _playerEventController.add(
+            PlayerEvent(
+              type: PlayerEventType.reconnected,
+              username: username,
+            ),
+          );
+          break;
+
         case ServerMessageType.playerAction:
           final username = data['username'] as String? ?? 'Unknown';
           final action = data['action'] as String? ?? '';
@@ -644,7 +669,7 @@ class PlayerEvent {
   PlayerEvent({required this.type, required this.username, this.seat});
 }
 
-enum PlayerEventType { joined, left }
+enum PlayerEventType { joined, left, disconnected, reconnected }
 
 /// Player action event
 class PlayerActionEvent {

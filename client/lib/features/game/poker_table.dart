@@ -116,11 +116,6 @@ class PokerTable extends StatelessWidget {
     // Use the table's configured max players
     final maxSeats = gameState.maxPlayers;
     
-    // Get the player's seat for rotation (so their seat appears at bottom center)
-    // If spectating (no seat), don't rotate
-    final mySeat = gameState.me?.seat ?? 0;
-    final shouldRotate = gameState.me != null;
-    
     // Create a map of seat number to player
     final seatMap = <int, Player>{};
     for (final player in gameState.players) {
@@ -130,11 +125,9 @@ class PokerTable extends StatelessWidget {
     for (int i = 0; i < maxSeats; i++) {
       // Calculate visual position around the oval
       // Start from bottom center and go counter-clockwise
-      // When player is seated, rotate so their seat appears at the bottom
-      final visualIndex = shouldRotate 
-          ? (i - mySeat + maxSeats) % maxSeats 
-          : i;
-      final angle = (math.pi / 2) + (2 * math.pi * visualIndex / maxSeats);
+      // Use consistent positions regardless of whether player is seated or spectating
+      // This prevents seats from jumping when sitting down or standing up
+      final angle = (math.pi / 2) + (2 * math.pi * i / maxSeats);
       final x = centerX + radiusX * math.cos(angle);
       final y = centerY + radiusY * math.sin(angle);
 
