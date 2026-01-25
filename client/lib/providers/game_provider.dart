@@ -98,10 +98,16 @@ class GameController extends StateNotifier<GameControllerState> {
   final Ref _ref;
   StreamSubscription? _statusSub;
   StreamSubscription? _errorSub;
+  StreamSubscription? _authFailedSub;
+  
+  /// Track pending table join for reconnection after token refresh
+  String? _pendingTableJoin;
+  int? _pendingTableSeat;
 
   GameController(this._ws, this._ref) : super(GameControllerState.initial()) {
     _statusSub = _ws.statusStream.listen(_onStatusChange);
     _errorSub = _ws.errorStream.listen(_onError);
+    _authFailedSub = _ws.authFailedStream.listen(_onAuthFailed);
   }
 
   void _onStatusChange(ConnectionStatus status) {
@@ -112,10 +118,57 @@ class GameController extends StateNotifier<GameControllerState> {
           status == ConnectionStatus.authenticated,
       isAuthenticated: status == ConnectionStatus.authenticated,
     );
+    
+    // If we just authenticated and have a pending table join, rejoin it
+    if (status == ConnectionStatus.authenticated && _pendingTableJoin != null) {
+      final tableId = _pendingTableJoin!;
+      final seat = _pendingTableSeat;
+      _pendingTableJoin = null;
+      _pendingTableSeat = null;
+      joinTable(tableId, seat: seat);
+    }
   }
 
   void _onError(String error) {
     state = state.copyWith(error: error);
+  }
+
+  /// Handle authentication failure (e.g., token expired)
+  Future<void> _onAuthFailed(AuthFailedEvent event) async {
+    if (!event.isTokenExpired) {
+      // Non-token error, just report it
+      state = state.copyWith(error: event.message);
+      return;
+    }
+
+    WebSocketLogger.info('AUTH', 'Handling token expiration, attempting refresh...');
+    _ws.setRefreshingToken(true);
+    
+    try {
+      // Store current table for reconnection
+      if (state.currentTableId != null) {
+        _pendingTableJoin = state.currentTableId;
+        // Note: we don't have seat info here, will rejoin without specific seat
+      }
+
+      // Try to refresh the token
+      final authNotifier = _ref.read(authProvider.notifier);
+      final newToken = await authNotifier.refreshAccessToken();
+
+      if (newToken != null) {
+        WebSocketLogger.info('AUTH', 'Token refreshed successfully, re-authenticating...');
+        // Re-authenticate with the new token
+        _ws.authenticate(newToken);
+      } else {
+        WebSocketLogger.error('AUTH', 'Token refresh failed, forcing logout');
+        // Refresh failed - force logout
+        state = state.copyWith(error: 'Session expired. Please log in again.');
+        await authNotifier.logout();
+        await disconnect();
+      }
+    } finally {
+      _ws.setRefreshingToken(false);
+    }
   }
 
   /// Connect and authenticate
@@ -225,6 +278,7 @@ class GameController extends StateNotifier<GameControllerState> {
   void dispose() {
     _statusSub?.cancel();
     _errorSub?.cancel();
+    _authFailedSub?.cancel();
     super.dispose();
   }
 }

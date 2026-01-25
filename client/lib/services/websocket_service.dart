@@ -155,9 +155,11 @@ class WebSocketService {
   final _ledgerController = StreamController<List<LedgerEntry>>.broadcast();
   final _standingsController = StreamController<List<StandingEntry>>.broadcast();
   final _playerActionController = StreamController<PlayerActionEvent>.broadcast();
+  final _authFailedController = StreamController<AuthFailedEvent>.broadcast();
 
   ConnectionStatus _status = ConnectionStatus.disconnected;
   String? _currentTableId;
+  bool _isRefreshingToken = false;
 
   /// Streams for UI to listen to
   Stream<ConnectionStatus> get statusStream => _statusController.stream;
@@ -173,9 +175,16 @@ class WebSocketService {
   Stream<List<LedgerEntry>> get ledgerStream => _ledgerController.stream;
   Stream<List<StandingEntry>> get standingsStream => _standingsController.stream;
   Stream<PlayerActionEvent> get playerActionStream => _playerActionController.stream;
+  Stream<AuthFailedEvent> get authFailedStream => _authFailedController.stream;
 
   ConnectionStatus get status => _status;
   String? get currentTableId => _currentTableId;
+  bool get isRefreshingToken => _isRefreshingToken;
+  
+  /// Set refreshing token state (called by GameController during token refresh)
+  void setRefreshingToken(bool value) {
+    _isRefreshingToken = value;
+  }
 
   /// Connect to WebSocket server
   Future<void> connect() async {
@@ -406,8 +415,25 @@ class WebSocketService {
 
         case ServerMessageType.error:
           final errorMsg = data['message'] as String? ?? 'Unknown error';
+          final errorCode = data['code'] as String?;
           WebSocketLogger.error('SERVER', 'Server error: $errorMsg', data);
-          _errorController.add(errorMsg);
+          
+          // Check for token expiration error
+          if (errorCode == 'AUTH_FAILED' && 
+              (errorMsg.toLowerCase().contains('expired') || 
+               errorMsg.toLowerCase().contains('token'))) {
+            // Only emit auth failed if we're not already refreshing
+            if (!_isRefreshingToken) {
+              WebSocketLogger.info('AUTH', 'Token expired, triggering refresh flow');
+              _authFailedController.add(AuthFailedEvent(
+                message: errorMsg,
+                code: errorCode,
+                isTokenExpired: true,
+              ));
+            }
+          } else {
+            _errorController.add(errorMsg);
+          }
           break;
 
         case ServerMessageType.gameState:
@@ -641,8 +667,22 @@ class WebSocketService {
     _ledgerController.close();
     _standingsController.close();
     _playerActionController.close();
+    _authFailedController.close();
     WebSocketLogger.debug('CONN', 'All resources disposed');
   }
+}
+
+/// Auth failed event for token refresh handling
+class AuthFailedEvent {
+  final String message;
+  final String? code;
+  final bool isTokenExpired;
+
+  AuthFailedEvent({
+    required this.message,
+    this.code,
+    this.isTokenExpired = false,
+  });
 }
 
 /// Chat message model

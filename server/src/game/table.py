@@ -504,6 +504,14 @@ class Table:
                 "shown_hands": {},
             })
         
+        # Clear hand state for all players (cards, folded status, etc.)
+        # This ensures the UI shows a clean state while waiting
+        for player in self.players.values():
+            player.reset_for_new_hand()
+        
+        # Clear community cards
+        self.community_cards = []
+        
         # Reset to waiting
         self.state = TableState.WAITING
         self.current_betting_round = None

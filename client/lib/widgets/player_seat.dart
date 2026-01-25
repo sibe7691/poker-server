@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/constants.dart';
 import '../core/theme.dart';
 import '../core/utils.dart';
 import '../models/player.dart';
@@ -12,6 +13,7 @@ class PlayerSeat extends StatelessWidget {
   final bool isSmallBlind;
   final bool isBigBlind;
   final int? lastAction; // For showing action animation
+  final GamePhase gamePhase;
 
   const PlayerSeat({
     super.key,
@@ -20,38 +22,51 @@ class PlayerSeat extends StatelessWidget {
     this.isSmallBlind = false,
     this.isBigBlind = false,
     this.lastAction,
+    this.gamePhase = GamePhase.waiting,
   });
+
+  /// Whether the player is out of chips and waiting for a rebuy
+  bool get _isOutOfChips => player.chips == 0 && !player.isAllIn;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 120,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Cards (if player has cards)
-          if (player.holeCards.isNotEmpty ||
-              player.hasCards ||
-              !player.isFolded)
-            _buildCards(),
-          const SizedBox(height: 4),
-          // Player info container
-          _buildPlayerInfo(context),
-          // Note: Bet chips are now rendered separately in PokerTable
-          // to position them on the table surface
-        ],
+    // Only show cards during active game phases, not when waiting
+    final isGameActive = gamePhase != GamePhase.waiting;
+    final shouldShowCards = isGameActive && 
+        (player.holeCards.isNotEmpty || player.hasCards) &&
+        !_isOutOfChips;
+
+    return Opacity(
+      opacity: _isOutOfChips ? 0.5 : 1.0,
+      child: SizedBox(
+        width: 120,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Cards (only if player has cards and game is active)
+            if (shouldShowCards && !player.isFolded)
+              _buildCards()
+            else if (shouldShowCards && player.isFolded)
+              _buildFoldedCards(),
+            if (shouldShowCards) const SizedBox(height: 4),
+            // Player info container
+            _buildPlayerInfo(context),
+            // Note: Bet chips are now rendered separately in PokerTable
+            // to position them on the table surface
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildCards() {
-    if (player.isFolded) {
-      return Opacity(
-        opacity: 0.3,
-        child: HoleCards(cards: const [], isHidden: true, isSmall: true),
-      );
-    }
+  Widget _buildFoldedCards() {
+    return Opacity(
+      opacity: 0.3,
+      child: HoleCards(cards: const [], isHidden: true, isSmall: true),
+    );
+  }
 
+  Widget _buildCards() {
     return HoleCards(
       cards: player.holeCards,
       isHidden: player.holeCards.isEmpty && !player.isYou,
@@ -60,6 +75,26 @@ class PlayerSeat extends StatelessWidget {
   }
 
   Widget _buildPlayerInfo(BuildContext context) {
+    // Determine gradient colors based on player state
+    List<Color> gradientColors;
+    if (_isOutOfChips) {
+      gradientColors = [Colors.grey.shade700, Colors.grey.shade800];
+    } else if (player.isFolded) {
+      gradientColors = [Colors.grey.shade800, Colors.grey.shade900];
+    } else if (isCurrentTurn) {
+      gradientColors = [
+        PokerTheme.goldAccent.withValues(alpha: 0.3),
+        PokerTheme.surfaceLight,
+      ];
+    } else if (player.isYou) {
+      gradientColors = [
+        PokerTheme.tableFelt.withValues(alpha: 0.5),
+        PokerTheme.surfaceLight,
+      ];
+    } else {
+      gradientColors = [PokerTheme.surfaceLight, PokerTheme.surfaceDark];
+    }
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -67,19 +102,7 @@ class PlayerSeat extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: player.isFolded
-              ? [Colors.grey.shade800, Colors.grey.shade900]
-              : isCurrentTurn
-              ? [
-                  PokerTheme.goldAccent.withValues(alpha: 0.3),
-                  PokerTheme.surfaceLight,
-                ]
-              : player.isYou
-              ? [
-                  PokerTheme.tableFelt.withValues(alpha: 0.5),
-                  PokerTheme.surfaceLight,
-                ]
-              : [PokerTheme.surfaceLight, PokerTheme.surfaceDark],
+          colors: gradientColors,
         ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
@@ -130,30 +153,50 @@ class PlayerSeat extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 4),
-          // Chip count
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.circle,
-                size: 12,
-                color: player.isAllIn
-                    ? PokerTheme.chipRed
-                    : PokerTheme.goldAccent,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                player.isAllIn ? 'ALL IN' : formatChips(player.chips),
-                style: TextStyle(
-                  color: player.isAllIn
-                      ? PokerTheme.chipRed
-                      : PokerTheme.goldAccent,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
+          // Chip count or status
+          _isOutOfChips
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.account_balance_wallet_outlined,
+                      size: 12,
+                      color: Colors.orange.shade300,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Needs chips',
+                      style: TextStyle(
+                        color: Colors.orange.shade300,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.circle,
+                      size: 12,
+                      color: player.isAllIn
+                          ? PokerTheme.chipRed
+                          : PokerTheme.goldAccent,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      player.isAllIn ? 'ALL IN' : formatChips(player.chips),
+                      style: TextStyle(
+                        color: player.isAllIn
+                            ? PokerTheme.chipRed
+                            : PokerTheme.goldAccent,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
         ],
       ),
     );

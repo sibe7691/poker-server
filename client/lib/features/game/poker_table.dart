@@ -96,11 +96,15 @@ class PokerTable extends StatelessWidget {
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Pot display
-              if (gameState.pot > 0) PotDisplay(pot: gameState.pot),
-              const SizedBox(height: 16),
-              // Community cards
-              CommunityCards(cards: gameState.communityCards),
+              // Pot display (only during active game)
+              if (gameState.pot > 0 && gameState.isInProgress) 
+                PotDisplay(pot: gameState.pot),
+              if (gameState.isInProgress) const SizedBox(height: 16),
+              // Community cards (only during active game)
+              if (gameState.isInProgress)
+                CommunityCards(cards: gameState.communityCards)
+              else
+                _buildWaitingMessage(),
             ],
           ),
         ],
@@ -163,6 +167,7 @@ class PokerTable extends StatelessWidget {
                   isCurrentTurn: gameState.currentPlayerId == player.userId,
                   isSmallBlind: _isSmallBlind(i),
                   isBigBlind: _isBigBlind(i),
+                  gamePhase: gameState.phase,
                 )
               : EmptySeat(
                   seatNumber: i + 1,
@@ -278,6 +283,36 @@ class PokerTable extends StatelessWidget {
       return seat != gameState.dealerSeat;
     }
     return seat == bbSeat;
+  }
+
+  Widget _buildWaitingMessage() {
+    // Count players with chips who can play
+    final playersWithChips = gameState.players.where((p) => p.chips > 0).length;
+    final minPlayers = 2;
+    
+    String message;
+    if (playersWithChips < minPlayers) {
+      final needed = minPlayers - playersWithChips;
+      message = 'Waiting for $needed more player${needed > 1 ? 's' : ''} with chips';
+    } else {
+      message = 'Waiting for next hand';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        message,
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
   }
 }
 

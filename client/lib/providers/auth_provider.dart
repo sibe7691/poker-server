@@ -58,6 +58,46 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(error: null);
     }
   }
+
+  /// Refresh the access token
+  /// Returns the new access token if successful, null otherwise
+  Future<String?> refreshAccessToken() async {
+    if (!state.isAuthenticated || state.refreshToken == null) {
+      if (kIsWeb) {
+        debugPrint('AuthNotifier: Cannot refresh - not authenticated or no refresh token');
+      }
+      return null;
+    }
+
+    if (kIsWeb) {
+      debugPrint('AuthNotifier: Attempting to refresh access token...');
+    }
+
+    final refreshedState = await _authService.refreshTokenWithUserInfo(
+      state.refreshToken!,
+      state.userId!,
+      state.username!,
+      role: state.role,
+    );
+
+    if (refreshedState != null) {
+      state = refreshedState;
+      if (kIsWeb) {
+        debugPrint('AuthNotifier: Token refresh successful');
+      }
+      return refreshedState.accessToken;
+    }
+
+    if (kIsWeb) {
+      debugPrint('AuthNotifier: Token refresh failed');
+    }
+    return null;
+  }
+
+  /// Force update the state (used after token refresh)
+  void updateState(AuthState newState) {
+    state = newState;
+  }
 }
 
 /// Auth state provider
