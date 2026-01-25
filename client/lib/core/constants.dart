@@ -54,8 +54,10 @@ enum Rank {
   const Rank(this.code, this.value);
 
   static Rank fromCode(String code) {
+    // Handle "10" from server as equivalent to "T"
+    final normalizedCode = code == '10' ? 'T' : code.toUpperCase();
     return Rank.values.firstWhere(
-      (r) => r.code == code.toUpperCase(),
+      (r) => r.code == normalizedCode,
       orElse: () => Rank.two,
     );
   }

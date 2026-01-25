@@ -301,7 +301,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 size: 20,
               ),
               label: const Text(
-                'Leave',
+                'Back to Lobby',
                 style: TextStyle(color: Colors.white70),
               ),
               style: TextButton.styleFrom(

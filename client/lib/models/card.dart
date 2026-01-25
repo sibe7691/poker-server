@@ -8,14 +8,17 @@ class PlayingCard extends Equatable {
 
   const PlayingCard({required this.rank, required this.suit});
 
-  /// Parse card from server format (e.g., "Ah" = Ace of Hearts)
+  /// Parse card from server format (e.g., "Ah" = Ace of Hearts, "10s" = 10 of Spades)
   factory PlayingCard.fromString(String cardStr) {
-    if (cardStr.length != 2) {
+    if (cardStr.length < 2 || cardStr.length > 3) {
       throw ArgumentError('Invalid card string: $cardStr');
     }
+    // Suit is always the last character, rank is everything before it
+    final suitCode = cardStr[cardStr.length - 1];
+    final rankCode = cardStr.substring(0, cardStr.length - 1);
     return PlayingCard(
-      rank: Rank.fromCode(cardStr[0]),
-      suit: Suit.fromCode(cardStr[1]),
+      rank: Rank.fromCode(rankCode),
+      suit: Suit.fromCode(suitCode),
     );
   }
 
