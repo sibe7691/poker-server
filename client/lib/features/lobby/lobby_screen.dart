@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../models/table_info.dart';
 import '../../providers/providers.dart';
 import '../../services/websocket_service.dart';
+import '../../widgets/widgets.dart';
 
 class LobbyScreen extends ConsumerStatefulWidget {
   const LobbyScreen({super.key});
@@ -155,18 +156,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(color: PokerTheme.goldAccent),
-            SizedBox(height: 16),
-            Text(
-              'Connecting to server...',
-              style: TextStyle(color: Colors.white54),
-            ),
-          ],
-        ),
+      return const FullScreenLoadingIndicator(
+        message: 'Connecting to server...',
       );
     }
 
