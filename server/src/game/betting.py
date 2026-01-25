@@ -222,29 +222,48 @@ class BettingRound:
     def _check_round_complete(self) -> None:
         """Check if the betting round is complete."""
         active_players = [p for p in self.players if p.can_act]
+        non_folded_players = [p for p in self.players if not p.is_folded]
         
-        # Round complete if 0 or 1 player can act
-        if len(active_players) <= 1:
+        # Round complete if no one can act (all folded or all-in)
+        if len(active_players) == 0:
             self._round_complete = True
             return
         
-        # Round complete if all active players have matched the bet and had a chance to act
+        # If only one non-folded player remains, they win (everyone else folded)
+        if len(non_folded_players) <= 1:
+            self._round_complete = True
+            return
+        
+        # Check if all non-folded players have matched the bet (or are all-in)
         all_matched = all(
             p.current_bet == self.current_bet or p.is_all_in
-            for p in self.players if not p.is_folded
+            for p in non_folded_players
         )
         
+        # Check if all active players have had a chance to act
         all_acted = all(
             self._actions_taken.get(p.user_id, 0) > 0
             for p in active_players
         )
         
-        # Special case: if someone raised, others need another chance
+        # Special case: if someone raised, others need another chance to respond
         if self.last_raiser:
-            # Check if we've gone around since the last raise
-            current_player = self.get_current_player()
-            if current_player and current_player.user_id == self.last_raiser:
-                if all_matched:
+            # Check if the raiser can still act (not all-in)
+            raiser_can_act = any(
+                p.user_id == self.last_raiser and p.can_act 
+                for p in self.players
+            )
+            
+            if raiser_can_act:
+                # Action must come back to the raiser for round to complete
+                current_player = self.get_current_player()
+                if current_player and current_player.user_id == self.last_raiser:
+                    if all_matched:
+                        self._round_complete = True
+            else:
+                # Raiser is all-in, round completes when everyone else has 
+                # matched the bet and had a chance to act
+                if all_matched and all_acted:
                     self._round_complete = True
         elif all_matched and all_acted:
             self._round_complete = True

@@ -145,6 +145,99 @@ class TestBettingRound:
         # Player 2 calls
         round.process_action(round.get_current_player(), Action(type=ActionType.CALL))
         assert round.is_complete
+    
+    def test_all_in_allows_others_to_respond(self):
+        """Test that when a player goes all-in, others get a chance to respond."""
+        # Player 1 has 50 chips, player 2 has 100
+        players = [make_player("1", chips=50), make_player("2", chips=100)]
+        for p in players:
+            p.hole_cards = ["dummy"]
+        
+        round = BettingRound(players, big_blind=2)
+        
+        # Player 1 goes all-in for 50
+        round.process_action(round.get_current_player(), Action(type=ActionType.ALL_IN))
+        
+        # Round should NOT be complete - player 2 needs a chance to call or fold
+        assert not round.is_complete
+        
+        # Player 2 should be current player
+        current = round.get_current_player()
+        assert current is not None
+        assert current.user_id == "2"
+        
+        # Player 2 can call or fold
+        valid = round.get_valid_actions(current)
+        assert ActionType.CALL in valid or ActionType.ALL_IN in valid
+        assert ActionType.FOLD in valid
+    
+    def test_all_in_round_completes_after_call(self):
+        """Test round completes after other player responds to all-in."""
+        players = [make_player("1", chips=50), make_player("2", chips=100)]
+        for p in players:
+            p.hole_cards = ["dummy"]
+        
+        round = BettingRound(players, big_blind=2)
+        
+        # Player 1 goes all-in for 50
+        round.process_action(round.get_current_player(), Action(type=ActionType.ALL_IN))
+        assert not round.is_complete
+        
+        # Player 2 calls the all-in
+        round.process_action(round.get_current_player(), Action(type=ActionType.CALL))
+        
+        # Now round should be complete
+        assert round.is_complete
+    
+    def test_all_in_round_completes_after_fold(self):
+        """Test round completes after other player folds to all-in."""
+        players = [make_player("1", chips=50), make_player("2", chips=100)]
+        for p in players:
+            p.hole_cards = ["dummy"]
+        
+        round = BettingRound(players, big_blind=2)
+        
+        # Player 1 goes all-in for 50
+        round.process_action(round.get_current_player(), Action(type=ActionType.ALL_IN))
+        assert not round.is_complete
+        
+        # Player 2 folds
+        round.process_action(round.get_current_player(), Action(type=ActionType.FOLD))
+        
+        # Now round should be complete
+        assert round.is_complete
+    
+    def test_multiway_all_in_allows_all_to_respond(self):
+        """Test that in multiway pot, all players can respond to all-in."""
+        players = [
+            make_player("1", chips=30),
+            make_player("2", chips=100),
+            make_player("3", chips=100),
+        ]
+        for p in players:
+            p.hole_cards = ["dummy"]
+        
+        round = BettingRound(players, big_blind=2)
+        
+        # Player 1 goes all-in for 30
+        round.process_action(round.get_current_player(), Action(type=ActionType.ALL_IN))
+        assert not round.is_complete
+        
+        # Player 2 should be able to act
+        current = round.get_current_player()
+        assert current.user_id == "2"
+        
+        # Player 2 calls
+        round.process_action(current, Action(type=ActionType.CALL))
+        assert not round.is_complete
+        
+        # Player 3 should be able to act
+        current = round.get_current_player()
+        assert current.user_id == "3"
+        
+        # Player 3 calls, round should complete
+        round.process_action(current, Action(type=ActionType.CALL))
+        assert round.is_complete
 
 
 class TestBettingValidation:
