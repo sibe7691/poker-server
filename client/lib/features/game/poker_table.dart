@@ -135,7 +135,7 @@ class PokerTable extends StatelessWidget {
       
       // Clamp position to keep widget within bounds
       final widgetWidth = 120.0;
-      final widgetHeight = 130.0; // Cards (49) + spacing (4) + info (~50) + spacing (4) + bet (~23)
+      final widgetHeight = 145.0; // Cards (84 for current player, 49 for others) + spacing (4) + info (~50) + spacing (4) + bet (~23)
       final clampedX = (x - widgetWidth / 2).clamp(0.0, constraints.maxWidth - widgetWidth);
       final clampedY = (y - widgetHeight / 2).clamp(0.0, constraints.maxHeight - widgetHeight);
       

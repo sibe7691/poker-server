@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+
 import '../core/theme.dart';
 import '../models/card.dart';
 
@@ -31,19 +32,17 @@ class PlayingCardWidget extends StatelessWidget {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: isFaceDown || card == null 
-              ? PokerTheme.chipBlue 
+          color: isFaceDown || card == null
+              ? PokerTheme.chipBlue
               : PokerTheme.cardWhite,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isHighlighted 
-                ? PokerTheme.goldAccent 
-                : Colors.grey.shade700,
+            color: isHighlighted ? PokerTheme.goldAccent : Colors.grey.shade700,
             width: isHighlighted ? 2 : 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: isHighlighted 
+              color: isHighlighted
                   ? PokerTheme.goldAccent.withValues(alpha: 0.5)
                   : Colors.black26,
               blurRadius: isHighlighted ? 8 : 4,
@@ -97,74 +96,76 @@ class PlayingCardWidget extends StatelessWidget {
 
   Widget _buildCardFace(PlayingCard card) {
     final color = Color(card.suit.color);
-    
-    return Padding(
-      padding: const EdgeInsets.all(4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Top rank and suit
-          Text(
-            card.rank.code,
-            style: TextStyle(
-              color: color,
-              fontSize: width * 0.3,
-              fontWeight: FontWeight.bold,
-              height: 1,
-            ),
+
+    return Stack(
+      children: [
+        // Top-left rank and suit
+        Positioned(
+          top: 0,
+          left: 0,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                card.rank.code,
+                style: TextStyle(
+                  color: color,
+                  fontSize: width * 0.28,
+                  fontWeight: FontWeight.bold,
+                  height: 1,
+                ),
+              ),
+              Text(
+                card.suit.symbol,
+                style: TextStyle(
+                  color: color,
+                  fontSize: width * 0.22,
+                  height: 0.9,
+                ),
+              ),
+            ],
           ),
-          Text(
+        ),
+        // Center suit (larger)
+        Center(
+          child: Text(
             card.suit.symbol,
-            style: TextStyle(
-              color: color,
-              fontSize: width * 0.25,
-              height: 0.8,
-            ),
+            style: TextStyle(color: color, fontSize: width * 0.45),
           ),
-          const Spacer(),
-          // Center suit (larger)
-          Center(
-            child: Text(
-              card.suit.symbol,
-              style: TextStyle(
-                color: color,
-                fontSize: width * 0.5,
-              ),
-            ),
-          ),
-          const Spacer(),
-          // Bottom rank and suit (inverted)
-          Align(
-            alignment: Alignment.bottomRight,
-            child: Transform.rotate(
-              angle: 3.14159, // 180 degrees
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    card.rank.code,
-                    style: TextStyle(
-                      color: color,
-                      fontSize: width * 0.3,
-                      fontWeight: FontWeight.bold,
-                      height: 1,
-                    ),
+        ),
+        // Bottom-right rank and suit (inverted)
+        Positioned(
+          bottom: 0,
+          right: 0,
+          child: Transform.rotate(
+            angle: 3.14159, // 180 degrees
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  card.rank.code,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: width * 0.28,
+                    fontWeight: FontWeight.bold,
+                    height: 1,
                   ),
-                  Text(
-                    card.suit.symbol,
-                    style: TextStyle(
-                      color: color,
-                      fontSize: width * 0.25,
-                      height: 0.8,
-                    ),
+                ),
+                Text(
+                  card.suit.symbol,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: width * 0.22,
+                    height: 0.9,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -174,16 +175,12 @@ class MiniCard extends StatelessWidget {
   final PlayingCard card;
   final double size;
 
-  const MiniCard({
-    super.key,
-    required this.card,
-    this.size = 32,
-  });
+  const MiniCard({super.key, required this.card, this.size = 32});
 
   @override
   Widget build(BuildContext context) {
     final color = Color(card.suit.color);
-    
+
     return Container(
       width: size,
       height: size * 1.4,
@@ -221,13 +218,10 @@ class CommunityCards extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: i < cards.length
-                ? PlayingCardWidget(
-                    card: cards[i],
-                    width: 50,
-                    height: 70,
-                  ).animate()
-                    .fadeIn(duration: 300.ms, delay: (i * 100).ms)
-                    .slideY(begin: -0.3, end: 0)
+                ? PlayingCardWidget(card: cards[i], width: 50, height: 70)
+                      .animate()
+                      .fadeIn(duration: 300.ms, delay: (i * 100).ms)
+                      .slideY(begin: -0.3, end: 0)
                 : _buildEmptySlot(),
           ),
       ],
@@ -262,9 +256,9 @@ class HoleCards extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cardWidth = isSmall ? 35.0 : 50.0;
-    final cardHeight = isSmall ? 49.0 : 70.0;
-    final overlap = isSmall ? 15.0 : 20.0;
+    final cardWidth = isSmall ? 35.0 : 60.0;
+    final cardHeight = isSmall ? 49.0 : 84.0;
+    final overlap = isSmall ? 15.0 : 25.0;
 
     return SizedBox(
       width: cardWidth * 2 - overlap,
