@@ -1,7 +1,11 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+
 import '../../core/constants.dart';
 import '../../core/theme.dart';
+import '../../core/utils.dart';
 import '../../models/models.dart';
 import '../../widgets/widgets.dart';
 
@@ -39,6 +43,10 @@ class PokerTable extends StatelessWidget {
             ),
             // Player seats around the table
             ..._buildPlayerSeats(context, constraints),
+            // Dealer button on the table
+            _buildDealerButton(constraints),
+            // Bet chips on the table (rendered on top of table surface)
+            ..._buildBetChips(constraints),
           ],
         );
       },
@@ -59,10 +67,7 @@ class PokerTable extends StatelessWidget {
         borderRadius: BorderRadius.all(
           Radius.elliptical(width / 2, height / 2),
         ),
-        border: Border.all(
-          color: const Color(0xFF5D4037),
-          width: 12,
-        ),
+        border: Border.all(color: const Color(0xFF5D4037), width: 12),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.5),
@@ -92,8 +97,7 @@ class PokerTable extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Pot display
-              if (gameState.pot > 0)
-                PotDisplay(pot: gameState.pot),
+              if (gameState.pot > 0) PotDisplay(pot: gameState.pot),
               const SizedBox(height: 16),
               // Community cards
               CommunityCards(cards: gameState.communityCards),
@@ -104,18 +108,21 @@ class PokerTable extends StatelessWidget {
     );
   }
 
-  List<Widget> _buildPlayerSeats(BuildContext context, BoxConstraints constraints) {
+  List<Widget> _buildPlayerSeats(
+    BuildContext context,
+    BoxConstraints constraints,
+  ) {
     final List<Widget> seats = [];
     final centerX = constraints.maxWidth / 2;
     final centerY = constraints.maxHeight / 2;
-    
+
     // Oval dimensions for seat placement
     final radiusX = constraints.maxWidth * 0.42;
     final radiusY = constraints.maxHeight * 0.38;
 
     // Use the table's configured max players
     final maxSeats = gameState.maxPlayers;
-    
+
     // Create a map of seat number to player
     final seatMap = <int, Player>{};
     for (final player in gameState.players) {
@@ -132,13 +139,20 @@ class PokerTable extends StatelessWidget {
       final y = centerY + radiusY * math.sin(angle);
 
       final player = seatMap[i];
-      
+
       // Clamp position to keep widget within bounds
       final widgetWidth = 120.0;
-      final widgetHeight = 145.0; // Cards (84 for current player, 49 for others) + spacing (4) + info (~50) + spacing (4) + bet (~23)
-      final clampedX = (x - widgetWidth / 2).clamp(0.0, constraints.maxWidth - widgetWidth);
-      final clampedY = (y - widgetHeight / 2).clamp(0.0, constraints.maxHeight - widgetHeight);
-      
+      final widgetHeight =
+          115.0; // Cards (84 for current player, 49 for others) + spacing (4) + info (~50)
+      final clampedX = (x - widgetWidth / 2).clamp(
+        0.0,
+        constraints.maxWidth - widgetWidth,
+      );
+      final clampedY = (y - widgetHeight / 2).clamp(
+        0.0,
+        constraints.maxHeight - widgetHeight,
+      );
+
       seats.add(
         Positioned(
           left: clampedX,
@@ -146,20 +160,102 @@ class PokerTable extends StatelessWidget {
           child: player != null
               ? PlayerSeat(
                   player: player,
-                  isDealer: gameState.dealerSeat == i,
                   isCurrentTurn: gameState.currentPlayerId == player.userId,
                   isSmallBlind: _isSmallBlind(i),
                   isBigBlind: _isBigBlind(i),
                 )
               : EmptySeat(
                   seatNumber: i + 1,
-                  onTap: onSeatSelected != null ? () => onSeatSelected!(i) : null,
+                  onTap: onSeatSelected != null
+                      ? () => onSeatSelected!(i)
+                      : null,
                 ),
         ),
       );
     }
 
     return seats;
+  }
+
+  /// Build the dealer button positioned on the table, in front of the dealer
+  Widget _buildDealerButton(BoxConstraints constraints) {
+    final centerX = constraints.maxWidth / 2;
+    final centerY = constraints.maxHeight / 2;
+
+    // Position dealer button at same radius as bet chips
+    final dealerRadiusX = constraints.maxWidth * 0.28;
+    final dealerRadiusY = constraints.maxHeight * 0.24;
+
+    final maxSeats = gameState.maxPlayers;
+    final dealerSeat = gameState.dealerSeat;
+
+    // Check if there's a player at the dealer seat
+    final hasDealer = gameState.players.any((p) => p.seat == dealerSeat);
+    if (!hasDealer) {
+      return const SizedBox.shrink();
+    }
+
+    // Calculate dealer button position with perpendicular offset to avoid overlap with bet chips
+    final angle = (math.pi / 2) + (2 * math.pi * dealerSeat / maxSeats);
+    final baseX = centerX + dealerRadiusX * math.cos(angle);
+    final baseY = centerY + dealerRadiusY * math.sin(angle);
+
+    // Offset perpendicular to the radial direction (to the right when looking from center)
+    final perpAngle = angle + math.pi / 2;
+    const offsetDistance = 35.0;
+    final buttonX = baseX + offsetDistance * math.cos(perpAngle);
+    final buttonY = baseY + offsetDistance * math.sin(perpAngle);
+
+    const buttonSize = 28.0;
+
+    return Positioned(
+      left: buttonX - buttonSize / 2,
+      top: buttonY - buttonSize / 2,
+      child: const _DealerButton(),
+    );
+  }
+
+  /// Build bet chips positioned on the table, between players and the center
+  List<Widget> _buildBetChips(BoxConstraints constraints) {
+    final List<Widget> betChips = [];
+    final centerX = constraints.maxWidth / 2;
+    final centerY = constraints.maxHeight / 2;
+
+    // Use a smaller radius for bet placement (closer to center than seats)
+    final betRadiusX = constraints.maxWidth * 0.28;
+    final betRadiusY = constraints.maxHeight * 0.24;
+
+    final maxSeats = gameState.maxPlayers;
+
+    // Create a map of seat number to player
+    final seatMap = <int, Player>{};
+    for (final player in gameState.players) {
+      seatMap[player.seat] = player;
+    }
+
+    for (int i = 0; i < maxSeats; i++) {
+      final player = seatMap[i];
+      if (player == null || player.currentBet <= 0) continue;
+
+      // Calculate bet position - same angle as seat but closer to center
+      final angle = (math.pi / 2) + (2 * math.pi * i / maxSeats);
+      final betX = centerX + betRadiusX * math.cos(angle);
+      final betY = centerY + betRadiusY * math.sin(angle);
+
+      // Center the bet chip widget
+      const chipWidth = 60.0;
+      const chipHeight = 28.0;
+
+      betChips.add(
+        Positioned(
+          left: betX - chipWidth / 2,
+          top: betY - chipHeight / 2,
+          child: _BetChip(amount: player.currentBet),
+        ),
+      );
+    }
+
+    return betChips;
   }
 
   bool _isSmallBlind(int seat) {
@@ -182,5 +278,101 @@ class PokerTable extends StatelessWidget {
       return seat != gameState.dealerSeat;
     }
     return seat == bbSeat;
+  }
+}
+
+/// Dealer button widget that displays on the table
+class _DealerButton extends StatelessWidget {
+  const _DealerButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFF5F5F5), Color(0xFFE0E0E0)],
+        ),
+        border: Border.all(color: const Color(0xFF424242), width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: const Center(
+        child: Text(
+          'D',
+          style: TextStyle(
+            color: Color(0xFF212121),
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bet chip widget that displays on the table
+class _BetChip extends StatelessWidget {
+  final int amount;
+
+  const _BetChip({required this.amount});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: PokerTheme.surfaceDark.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: PokerTheme.goldAccent, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Small chip icon
+          Container(
+            width: 14,
+            height: 14,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  PokerTheme.goldAccent,
+                  PokerTheme.goldAccent.withValues(alpha: 0.7),
+                ],
+              ),
+              border: Border.all(color: Colors.white54, width: 1),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            formatChips(amount),
+            style: const TextStyle(
+              color: PokerTheme.goldAccent,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    ).animate().scale(duration: 200.ms, curve: Curves.easeOut);
   }
 }

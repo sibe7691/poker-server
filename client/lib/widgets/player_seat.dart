@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+
 import '../core/theme.dart';
 import '../core/utils.dart';
 import '../models/player.dart';
@@ -8,7 +8,6 @@ import 'playing_card.dart';
 /// A player seat widget showing player info, chips, and cards
 class PlayerSeat extends StatelessWidget {
   final Player player;
-  final bool isDealer;
   final bool isCurrentTurn;
   final bool isSmallBlind;
   final bool isBigBlind;
@@ -17,7 +16,6 @@ class PlayerSeat extends StatelessWidget {
   const PlayerSeat({
     super.key,
     required this.player,
-    this.isDealer = false,
     this.isCurrentTurn = false,
     this.isSmallBlind = false,
     this.isBigBlind = false,
@@ -32,15 +30,15 @@ class PlayerSeat extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // Cards (if player has cards)
-          if (player.holeCards.isNotEmpty || player.hasCards || !player.isFolded)
+          if (player.holeCards.isNotEmpty ||
+              player.hasCards ||
+              !player.isFolded)
             _buildCards(),
           const SizedBox(height: 4),
           // Player info container
           _buildPlayerInfo(context),
-          const SizedBox(height: 4),
-          // Current bet (if any)
-          if (player.currentBet > 0)
-            _buildBetChip(),
+          // Note: Bet chips are now rendered separately in PokerTable
+          // to position them on the table surface
         ],
       ),
     );
@@ -50,11 +48,7 @@ class PlayerSeat extends StatelessWidget {
     if (player.isFolded) {
       return Opacity(
         opacity: 0.3,
-        child: HoleCards(
-          cards: const [],
-          isHidden: true,
-          isSmall: true,
-        ),
+        child: HoleCards(cards: const [], isHidden: true, isSmall: true),
       );
     }
 
@@ -76,18 +70,24 @@ class PlayerSeat extends StatelessWidget {
           colors: player.isFolded
               ? [Colors.grey.shade800, Colors.grey.shade900]
               : isCurrentTurn
-                  ? [PokerTheme.goldAccent.withValues(alpha: 0.3), PokerTheme.surfaceLight]
-                  : player.isYou
-                      ? [PokerTheme.tableFelt.withValues(alpha: 0.5), PokerTheme.surfaceLight]
-                      : [PokerTheme.surfaceLight, PokerTheme.surfaceDark],
+              ? [
+                  PokerTheme.goldAccent.withValues(alpha: 0.3),
+                  PokerTheme.surfaceLight,
+                ]
+              : player.isYou
+              ? [
+                  PokerTheme.tableFelt.withValues(alpha: 0.5),
+                  PokerTheme.surfaceLight,
+                ]
+              : [PokerTheme.surfaceLight, PokerTheme.surfaceDark],
         ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isCurrentTurn
               ? PokerTheme.goldAccent
               : player.isYou
-                  ? PokerTheme.tableFelt
-                  : Colors.transparent,
+              ? PokerTheme.tableFelt
+              : Colors.transparent,
           width: isCurrentTurn ? 2 : 1,
         ),
         boxShadow: isCurrentTurn
@@ -103,14 +103,13 @@ class PlayerSeat extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Username with position badges
+          // Username with position badges (dealer button is rendered on the table)
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (isDealer) _buildBadge('D', PokerTheme.goldAccent),
               if (isSmallBlind) _buildBadge('SB', PokerTheme.chipBlue),
               if (isBigBlind) _buildBadge('BB', PokerTheme.chipRed),
-              const SizedBox(width: 4),
+              if (isSmallBlind || isBigBlind) const SizedBox(width: 4),
               Flexible(
                 child: Text(
                   player.username,
@@ -126,11 +125,7 @@ class PlayerSeat extends StatelessWidget {
               if (!player.isConnected)
                 const Padding(
                   padding: EdgeInsets.only(left: 4),
-                  child: Icon(
-                    Icons.wifi_off,
-                    size: 14,
-                    color: Colors.orange,
-                  ),
+                  child: Icon(Icons.wifi_off, size: 14, color: Colors.orange),
                 ),
             ],
           ),
@@ -182,28 +177,6 @@ class PlayerSeat extends StatelessWidget {
       ),
     );
   }
-
-  Widget _buildBetChip() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: PokerTheme.surfaceDark,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: PokerTheme.goldAccent, width: 1),
-      ),
-      child: Text(
-        formatChips(player.currentBet),
-        style: const TextStyle(
-          color: PokerTheme.goldAccent,
-          fontWeight: FontWeight.bold,
-          fontSize: 12,
-        ),
-      ),
-    ).animate().scale(
-      duration: 200.ms,
-      curve: Curves.easeOut,
-    );
-  }
 }
 
 /// Empty seat widget for available positions
@@ -211,16 +184,12 @@ class EmptySeat extends StatelessWidget {
   final int seatNumber;
   final VoidCallback? onTap;
 
-  const EmptySeat({
-    super.key,
-    required this.seatNumber,
-    this.onTap,
-  });
+  const EmptySeat({super.key, required this.seatNumber, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final isSelectable = onTap != null;
-    
+
     return SizedBox(
       width: 120,
       child: GestureDetector(
@@ -252,7 +221,9 @@ class EmptySeat extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                isSelectable ? Icons.add_circle_outline : Icons.person_add_outlined,
+                isSelectable
+                    ? Icons.add_circle_outline
+                    : Icons.person_add_outlined,
                 color: isSelectable ? PokerTheme.goldAccent : Colors.white38,
                 size: 24,
               ),
@@ -262,7 +233,9 @@ class EmptySeat extends StatelessWidget {
                 style: TextStyle(
                   color: isSelectable ? PokerTheme.goldAccent : Colors.white38,
                   fontSize: 12,
-                  fontWeight: isSelectable ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: isSelectable
+                      ? FontWeight.w600
+                      : FontWeight.normal,
                 ),
               ),
             ],
