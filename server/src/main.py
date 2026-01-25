@@ -524,6 +524,9 @@ async def create_table(
         max_players=request.max_players,
     )
     
+    # Notify all connected clients about the new table
+    await server.broadcast_tables_update()
+    
     return TableResponse(
         table_id=table.table_id,
         small_blind=table.small_blind,

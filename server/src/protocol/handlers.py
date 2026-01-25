@@ -569,6 +569,9 @@ class MessageHandler:
             max_players=message.max_players,
         )
         
+        # Notify all connected clients about the new table
+        await self.server.broadcast_tables_update()
+        
         return TableCreatedMessage(
             table_id=table.table_id,
             small_blind=table.small_blind,
