@@ -220,8 +220,25 @@ class GameServer:
                         user_id,
                         GameStateMessage(**spectator_state).model_dump()
                     )
+            
+            # Auto-start next hand after hand_result with a delay
+            if event_type == "hand_result":
+                asyncio.create_task(self._auto_start_next_hand(table))
         
         table.set_event_callback(event_callback)
+    
+    async def _auto_start_next_hand(self, table: Table):
+        """Auto-start the next hand after a delay."""
+        from src.game.table import TableState
+        
+        # Wait for players to see the results
+        await asyncio.sleep(5)
+        
+        # Check if we can still start (table might have changed)
+        if table.state == TableState.WAITING and table.can_start_hand():
+            success = await table.start_hand()
+            if success:
+                logger.info(f"Auto-started next hand on table {table.table_id}")
 
     def get_player_table(self, user_id: str) -> Optional[str]:
         """Get the table a player or spectator is at."""
