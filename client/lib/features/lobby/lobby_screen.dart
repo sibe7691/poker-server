@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +9,18 @@ import '../../models/table_info.dart';
 import '../../providers/providers.dart';
 import '../../services/websocket_service.dart';
 import '../../widgets/widgets.dart';
+
+const _loadingMessages = [
+  'Shuffling the deck...',
+  'Dealing the cards...',
+  'Setting the table...',
+  'Stacking the chips...',
+  'Cutting the deck...',
+  'Warming up the felt...',
+  'Counting the chips...',
+  'Breaking the seal...',
+  'Riffling the cards...',
+];
 
 class LobbyScreen extends ConsumerStatefulWidget {
   const LobbyScreen({super.key});
@@ -19,6 +33,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   List<TableInfo> _tables = [];
   bool _isLoading = true;
   String? _error;
+  String _loadingMessage = _loadingMessages[Random().nextInt(_loadingMessages.length)];
 
   @override
   void initState() {
@@ -118,13 +133,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       });
     });
 
-    // Listen for connection status
+    // Listen for connection status changes (for potential reconnection handling)
     ref.listen(connectionStatusProvider, (previous, next) {
-      next.whenData((status) {
-        if (status == ConnectionStatus.authenticated) {
-          setState(() => _isLoading = false);
-        }
-      });
+      // Don't set _isLoading = false here - wait for tables to be fetched
+      // This prevents showing the empty state before the initial load completes
     });
 
     return Scaffold(
@@ -169,8 +181,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const FullScreenLoadingIndicator(
-        message: 'Connecting to server...',
+      return FullScreenLoadingIndicator(
+        message: _loadingMessage,
       );
     }
 
