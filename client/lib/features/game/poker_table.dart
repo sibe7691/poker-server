@@ -2,14 +2,23 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:poker_app/core/constants.dart';
 import 'package:poker_app/core/theme.dart';
 import 'package:poker_app/core/utils.dart';
 import 'package:poker_app/models/models.dart';
+import 'package:poker_app/providers/game_provider.dart';
+import 'package:poker_app/services/websocket_service.dart';
 import 'package:poker_app/widgets/widgets.dart';
 
+/// Data class to track a player's recent action
+class _PlayerActionData {
+  _PlayerActionData({required this.action});
+  final PlayerAction action;
+}
+
 /// The visual poker table with player seats arranged in an oval
-class PokerTable extends StatelessWidget {
+class PokerTable extends ConsumerStatefulWidget {
   const PokerTable({
     required this.gameState,
     required this.onAction,
@@ -21,7 +30,48 @@ class PokerTable extends StatelessWidget {
   final void Function(int seatIndex)? onSeatSelected;
 
   @override
+  ConsumerState<PokerTable> createState() => _PokerTableState();
+}
+
+class _PokerTableState extends ConsumerState<PokerTable> {
+  /// Track recent actions by player userId
+  final Map<String, _PlayerActionData> _playerActions = {};
+
+  /// Track last hand number to clear actions on new hand
+  int _lastHandNumber = 0;
+
+  /// Get the rotation offset to position the current user at the bottom
+  /// Returns the angle offset in radians
+  double get _rotationOffset {
+    final me = widget.gameState.me;
+    if (me == null) return 0;
+    final maxSeats = widget.gameState.maxPlayers;
+    // Calculate how much to rotate so the user's seat is at the bottom
+    return 2 * math.pi * me.seat / maxSeats;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Listen for player action events
+    ref.listen<AsyncValue<PlayerActionEvent>>(
+      playerActionProvider,
+      (previous, next) {
+        next.whenData((event) {
+          setState(() {
+            _playerActions[event.userId] = _PlayerActionData(
+              action: PlayerAction.fromString(event.action),
+            );
+          });
+        });
+      },
+    );
+
+    // Clear actions when a new hand starts
+    if (widget.gameState.handNumber != _lastHandNumber) {
+      _lastHandNumber = widget.gameState.handNumber;
+      _playerActions.clear();
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final tableWidth = constraints.maxWidth * 0.85;
@@ -95,12 +145,12 @@ class PokerTable extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Pot display (only during active game)
-              if (gameState.pot > 0 && gameState.isInProgress)
-                PotDisplay(pot: gameState.pot),
-              if (gameState.isInProgress) const SizedBox(height: 16),
+              if (widget.gameState.pot > 0 && widget.gameState.isInProgress)
+                PotDisplay(pot: widget.gameState.pot),
+              if (widget.gameState.isInProgress) const SizedBox(height: 16),
               // Community cards (only during active game)
-              if (gameState.isInProgress)
-                CommunityCards(cards: gameState.communityCards)
+              if (widget.gameState.isInProgress)
+                CommunityCards(cards: widget.gameState.communityCards)
               else
                 _buildWaitingMessage(),
             ],
@@ -123,21 +173,20 @@ class PokerTable extends StatelessWidget {
     final radiusY = constraints.maxHeight * 0.38;
 
     // Use the table's configured max players
-    final maxSeats = gameState.maxPlayers;
+    final maxSeats = widget.gameState.maxPlayers;
 
     // Create a map of seat number to player
     final seatMap = <int, Player>{};
-    for (final player in gameState.players) {
+    for (final player in widget.gameState.players) {
       seatMap[player.seat] = player;
     }
 
     for (var i = 0; i < maxSeats; i++) {
       // Calculate visual position around the oval
       // Start from bottom center and go counter-clockwise
-      // Use consistent positions regardless of whether player is seated
-      // or spectating
-      // This prevents seats from jumping when sitting down or standing up
-      final angle = (math.pi / 2) + (2 * math.pi * i / maxSeats);
+      // Apply rotation offset so the current user is always at the bottom
+      final angle =
+          (math.pi / 2) + (2 * math.pi * i / maxSeats) - _rotationOffset;
       final x = centerX + radiusX * math.cos(angle);
       final y = centerY + radiusY * math.sin(angle);
 
@@ -156,6 +205,9 @@ class PokerTable extends StatelessWidget {
         constraints.maxHeight - widgetHeight,
       );
 
+      // Get the player's recent action if any
+      final actionData = player != null ? _playerActions[player.userId] : null;
+
       seats.add(
         Positioned(
           left: clampedX,
@@ -163,15 +215,17 @@ class PokerTable extends StatelessWidget {
           child: player != null
               ? PlayerSeat(
                   player: player,
-                  isCurrentTurn: gameState.currentPlayerId == player.userId,
+                  isCurrentTurn:
+                      widget.gameState.currentPlayerId == player.userId,
                   isSmallBlind: _isSmallBlind(i),
                   isBigBlind: _isBigBlind(i),
-                  gamePhase: gameState.phase,
+                  gamePhase: widget.gameState.phase,
+                  lastAction: actionData?.action,
                 )
               : EmptySeat(
                   seatNumber: i + 1,
-                  onTap: onSeatSelected != null
-                      ? () => onSeatSelected!(i)
+                  onTap: widget.onSeatSelected != null
+                      ? () => widget.onSeatSelected!(i)
                       : null,
                 ),
         ),
@@ -190,18 +244,20 @@ class PokerTable extends StatelessWidget {
     final dealerRadiusX = constraints.maxWidth * 0.28;
     final dealerRadiusY = constraints.maxHeight * 0.24;
 
-    final maxSeats = gameState.maxPlayers;
-    final dealerSeat = gameState.dealerSeat;
+    final maxSeats = widget.gameState.maxPlayers;
+    final dealerSeat = widget.gameState.dealerSeat;
 
     // Check if there's a player at the dealer seat
-    final hasDealer = gameState.players.any((p) => p.seat == dealerSeat);
+    final hasDealer = widget.gameState.players.any((p) => p.seat == dealerSeat);
     if (!hasDealer) {
       return const SizedBox.shrink();
     }
 
     // Calculate dealer button position with perpendicular offset to avoid
     // overlap with bet chips
-    final angle = (math.pi / 2) + (2 * math.pi * dealerSeat / maxSeats);
+    // Apply rotation offset so positions match the rotated seat positions
+    final angle =
+        (math.pi / 2) + (2 * math.pi * dealerSeat / maxSeats) - _rotationOffset;
     final baseX = centerX + dealerRadiusX * math.cos(angle);
     final baseY = centerY + dealerRadiusY * math.sin(angle);
 
@@ -231,11 +287,11 @@ class PokerTable extends StatelessWidget {
     final betRadiusX = constraints.maxWidth * 0.28;
     final betRadiusY = constraints.maxHeight * 0.24;
 
-    final maxSeats = gameState.maxPlayers;
+    final maxSeats = widget.gameState.maxPlayers;
 
     // Create a map of seat number to player
     final seatMap = <int, Player>{};
-    for (final player in gameState.players) {
+    for (final player in widget.gameState.players) {
       seatMap[player.seat] = player;
     }
 
@@ -244,7 +300,9 @@ class PokerTable extends StatelessWidget {
       if (player == null || player.currentBet <= 0) continue;
 
       // Calculate bet position - same angle as seat but closer to center
-      final angle = (math.pi / 2) + (2 * math.pi * i / maxSeats);
+      // Apply rotation offset so positions match the rotated seat positions
+      final angle =
+          (math.pi / 2) + (2 * math.pi * i / maxSeats) - _rotationOffset;
       final betX = centerX + betRadiusX * math.cos(angle);
       final betY = centerY + betRadiusY * math.sin(angle);
 
@@ -265,30 +323,32 @@ class PokerTable extends StatelessWidget {
   }
 
   bool _isSmallBlind(int seat) {
-    if (gameState.players.length < 2) return false;
-    final maxSeats = gameState.maxPlayers;
-    final sbSeat = (gameState.dealerSeat + 1) % maxSeats;
+    if (widget.gameState.players.length < 2) return false;
+    final maxSeats = widget.gameState.maxPlayers;
+    final sbSeat = (widget.gameState.dealerSeat + 1) % maxSeats;
     // Handle heads-up where dealer is SB
-    if (gameState.players.length == 2) {
-      return seat == gameState.dealerSeat;
+    if (widget.gameState.players.length == 2) {
+      return seat == widget.gameState.dealerSeat;
     }
     return seat == sbSeat;
   }
 
   bool _isBigBlind(int seat) {
-    if (gameState.players.length < 2) return false;
-    final maxSeats = gameState.maxPlayers;
-    final bbSeat = (gameState.dealerSeat + 2) % maxSeats;
+    if (widget.gameState.players.length < 2) return false;
+    final maxSeats = widget.gameState.maxPlayers;
+    final bbSeat = (widget.gameState.dealerSeat + 2) % maxSeats;
     // Handle heads-up where non-dealer is BB
-    if (gameState.players.length == 2) {
-      return seat != gameState.dealerSeat;
+    if (widget.gameState.players.length == 2) {
+      return seat != widget.gameState.dealerSeat;
     }
     return seat == bbSeat;
   }
 
   Widget _buildWaitingMessage() {
     // Count players with chips who can play
-    final playersWithChips = gameState.players.where((p) => p.chips > 0).length;
+    final playersWithChips = widget.gameState.players
+        .where((p) => p.chips > 0)
+        .length;
     const minPlayers = 2;
 
     String message;

@@ -97,11 +97,10 @@ class GameState extends Equatable {
 
   /// Get the player marked as "you"
   Player? get me {
-    try {
-      return players.firstWhere((p) => p.isYou);
-    } on Exception catch (_) {
-      return null;
+    for (final p in players) {
+      if (p.isYou) return p;
     }
+    return null;
   }
 
   /// Whether it's the user's turn

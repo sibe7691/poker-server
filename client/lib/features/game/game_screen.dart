@@ -97,10 +97,12 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   void _selectSeat(int seatIndex) {
     // Join the table at the selected seat
-    ref.read(gameControllerProvider.notifier).joinTable(
-      widget.tableId,
-      seat: seatIndex,
-    );
+    ref
+        .read(gameControllerProvider.notifier)
+        .joinTable(
+          widget.tableId,
+          seat: seatIndex,
+        );
   }
 
   void _leaveTable() {
@@ -117,7 +119,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         title: const Text('Stand Up?', style: TextStyle(color: Colors.white)),
         content: const Text(
           'Are you sure you want to leave your seat? '
-        'You will continue watching as a spectator.',
+          'You will continue watching as a spectator.',
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -316,7 +318,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                   callAmount: _gameState!.callAmount,
                   minRaise: _gameState!.minRaise,
                   maxBet: _gameState!.me?.chips ?? 0,
-                  bigBlind: _gameState!.bigBlind,
+                  pot: _gameState!.pot,
                   onAction: _sendAction,
                 )
               else if (_gameState != null && _gameState!.isInProgress)

@@ -14,7 +14,7 @@ class ActionButtonsPanel extends StatefulWidget {
     required this.callAmount,
     required this.minRaise,
     required this.maxBet,
-    required this.bigBlind,
+    required this.pot,
     required this.onAction,
     super.key,
   });
@@ -22,7 +22,7 @@ class ActionButtonsPanel extends StatefulWidget {
   final int callAmount;
   final int minRaise;
   final int maxBet;
-  final int bigBlind;
+  final int pot;
   final void Function(PlayerAction action, {int? amount}) onAction;
 
   @override
@@ -30,17 +30,8 @@ class ActionButtonsPanel extends StatefulWidget {
 }
 
 class _ActionButtonsPanelState extends State<ActionButtonsPanel> {
-  double _raiseSliderValue = 0;
   final _debouncer = Debouncer();
-  bool _showRaiseSlider = false;
-
-  @override
-  void didUpdateWidget(ActionButtonsPanel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.minRaise != oldWidget.minRaise) {
-      _raiseSliderValue = widget.minRaise.toDouble();
-    }
-  }
+  bool _showRaiseMenu = false;
 
   @override
   Widget build(BuildContext context) {
@@ -61,8 +52,8 @@ class _ActionButtonsPanelState extends State<ActionButtonsPanel> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Raise slider (if showing)
-            if (_showRaiseSlider) _buildRaiseSlider(),
+            // Raise menu (if showing)
+            if (_showRaiseMenu) _buildRaiseMenu(),
             const SizedBox(height: 12),
             // Action buttons row
             _buildActionButtons(),
@@ -72,9 +63,24 @@ class _ActionButtonsPanelState extends State<ActionButtonsPanel> {
     );
   }
 
-  Widget _buildRaiseSlider() {
-    final min = widget.minRaise.toDouble();
-    final max = widget.maxBet.toDouble();
+  /// Whether this is a raise (someone has bet) vs a bet (first to act)
+  bool get _isRaise => widget.validActions.contains(PlayerAction.raise);
+
+  /// Calculate raise amount for a given pot percentage
+  int _calculateRaiseAmount(double percentage) {
+    // Total pot for calculation:
+    // - For a bet (first to act): just the pot
+    // - For a raise (someone has bet): pot + the bet we need to call
+    final totalPot = _isRaise ? widget.pot + widget.callAmount : widget.pot;
+    // Raise amount = total pot × percentage
+    final raiseAmount = (totalPot * percentage).round();
+    // Clamp between min raise and max bet (all-in)
+    return raiseAmount.clamp(widget.minRaise, widget.maxBet);
+  }
+
+  Widget _buildRaiseMenu() {
+    final action = _isRaise ? PlayerAction.raise : PlayerAction.bet;
+    final actionLabel = _isRaise ? 'Raise' : 'Bet';
 
     return Column(
       children: [
@@ -82,7 +88,7 @@ class _ActionButtonsPanelState extends State<ActionButtonsPanel> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Raise to: ${formatChips(_raiseSliderValue.toInt())}',
+              '$actionLabel Amount',
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -91,104 +97,73 @@ class _ActionButtonsPanelState extends State<ActionButtonsPanel> {
             ),
             IconButton(
               icon: const Icon(Icons.close, color: Colors.white54),
-              onPressed: () => setState(() => _showRaiseSlider = false),
+              onPressed: () => setState(() => _showRaiseMenu = false),
             ),
-          ],
-        ),
-        Row(
-          children: [
-            Text(
-              formatChips(min.toInt()),
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
-            ),
-            Expanded(
-              child: SliderTheme(
-                data: SliderThemeData(
-                  activeTrackColor: PokerTheme.goldAccent,
-                  inactiveTrackColor: Colors.white24,
-                  thumbColor: PokerTheme.goldAccent,
-                  overlayColor: PokerTheme.goldAccent.withValues(alpha: 0.2),
-                ),
-                child: Slider(
-                  value: _raiseSliderValue.clamp(min, max),
-                  min: min,
-                  max: max,
-                  divisions: ((max - min) / widget.bigBlind).round().clamp(
-                    1,
-                    100,
-                  ),
-                  onChanged: (value) {
-                    setState(() {
-                      _raiseSliderValue = value;
-                    });
-                  },
-                ),
-              ),
-            ),
-            Text(
-              formatChips(max.toInt()),
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
-            ),
-          ],
-        ),
-        // Quick bet buttons
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _quickBetButton('Min', widget.minRaise.toDouble()),
-            _quickBetButton(
-              '1/2 Pot',
-              (widget.callAmount * 1.5).clamp(min, max),
-            ),
-            _quickBetButton(
-              'Pot',
-              (widget.callAmount * 2).clamp(min, max).toDouble(),
-            ),
-            _quickBetButton('All In', max),
           ],
         ),
         const SizedBox(height: 8),
-        // Confirm raise button
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: PokerTheme.goldAccent,
-              foregroundColor: Colors.black,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-            onPressed: () {
-              if (_debouncer.call()) {
-                HapticFeedback.mediumImpact();
-                final action = widget.validActions.contains(PlayerAction.raise)
-                    ? PlayerAction.raise
-                    : PlayerAction.bet;
-                widget.onAction(action, amount: _raiseSliderValue.toInt());
-                setState(() => _showRaiseSlider = false);
-              }
-            },
-            child: Text(
-              'Raise to ${formatChips(_raiseSliderValue.toInt())}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
+        // Percentage raise buttons
+        Row(
+          children: [
+            _raisePercentButton('33%', 0.33, action),
+            const SizedBox(width: 8),
+            _raisePercentButton('50%', 0.50, action),
+            const SizedBox(width: 8),
+            _raisePercentButton('75%', 0.75, action),
+            const SizedBox(width: 8),
+            _raisePercentButton('100%', 1.0, action),
+          ],
         ),
       ],
     );
   }
 
-  Widget _quickBetButton(String label, double value) {
-    return TextButton(
-      onPressed: () {
-        setState(() {
-          _raiseSliderValue = value;
-        });
-      },
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: PokerTheme.goldAccent,
-          fontSize: 12,
+  Widget _raisePercentButton(
+    String label,
+    double percentage,
+    PlayerAction action,
+  ) {
+    final amount = _calculateRaiseAmount(percentage);
+    final isAllIn = amount >= widget.maxBet;
+
+    return Expanded(
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isAllIn
+              ? PokerTheme.chipRed
+              : PokerTheme.goldAccent.withValues(alpha: 0.9),
+          foregroundColor: isAllIn ? Colors.white : Colors.black,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        onPressed: () {
+          if (_debouncer.call()) {
+            HapticFeedback.mediumImpact();
+            widget.onAction(action, amount: amount);
+            setState(() => _showRaiseMenu = false);
+          }
+        },
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              isAllIn ? 'All In' : formatChips(amount),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isAllIn ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -253,8 +228,7 @@ class _ActionButtonsPanelState extends State<ActionButtonsPanel> {
               textColor: Colors.black,
               onPressed: () {
                 setState(() {
-                  _raiseSliderValue = widget.minRaise.toDouble();
-                  _showRaiseSlider = true;
+                  _showRaiseMenu = !_showRaiseMenu;
                 });
               },
             ),

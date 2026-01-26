@@ -210,6 +210,121 @@ class TestStateForPlayer:
         assert p2_data["has_cards"] is True
 
 
+class TestPreflopActionOrder:
+    """Test preflop action order - who acts first.
+    
+    Note: _advance_dealer() is called at the start of each hand, moving the
+    dealer button to the next player. So if dealer_seat=0 initially with seats
+    [0,1], after advance dealer becomes seat 1.
+    """
+    
+    @pytest.mark.asyncio
+    async def test_heads_up_sb_acts_first_preflop(self):
+        """In heads-up, small blind (dealer) should act first preflop."""
+        table = Table(table_id="test", small_blind=1, big_blind=2)
+        p1 = make_player("1", chips=100, seat=0)
+        p2 = make_player("2", chips=100, seat=1)
+        table.add_player(p1)
+        table.add_player(p2)
+        # Set dealer_seat=0 so after _advance_dealer it becomes seat 1
+        # Then: seat 1 = dealer/SB, seat 0 = BB
+        table.dealer_seat = 0
+        
+        await table.start_hand()
+        
+        # After _advance_dealer: dealer is now seat 1
+        # In heads-up: dealer (seat 1) posts SB, other (seat 0) posts BB
+        assert p2.current_bet == 1, f"Expected p2 to be SB, got bet {p2.current_bet}"
+        assert p1.current_bet == 2, f"Expected p1 to be BB, got bet {p1.current_bet}"
+        
+        # First to act preflop in heads-up should be SB (dealer, p2)
+        current = table.current_betting_round.get_current_player()
+        assert current.user_id == "2", f"Expected SB (player 2) to act first in heads-up, got {current.username}"
+    
+    @pytest.mark.asyncio
+    async def test_three_player_utg_acts_first_preflop(self):
+        """In 3+ players, UTG (player after BB) should act first preflop."""
+        table = Table(table_id="test", small_blind=1, big_blind=2)
+        p1 = make_player("1", chips=100, seat=0)
+        p2 = make_player("2", chips=100, seat=1)
+        p3 = make_player("3", chips=100, seat=2)
+        table.add_player(p1)
+        table.add_player(p2)
+        table.add_player(p3)
+        # Set dealer_seat=0 so after _advance_dealer it becomes seat 1
+        # Then: seat 1 = dealer, seat 2 = SB, seat 0 = BB
+        table.dealer_seat = 0
+        
+        await table.start_hand()
+        
+        # After _advance_dealer: dealer is seat 1
+        # _get_players_in_order returns starting from dealer+1: [seat 2, seat 0, seat 1]
+        # Non-heads-up: active[0]=seat2 is SB, active[1]=seat0 is BB
+        assert p3.current_bet == 1, f"Expected p3 (seat 2) to be SB, got bet {p3.current_bet}"
+        assert p1.current_bet == 2, f"Expected p1 (seat 0) to be BB, got bet {p1.current_bet}"
+        
+        # First to act should be UTG (player after BB = seat 1, the dealer)
+        current = table.current_betting_round.get_current_player()
+        assert current.user_id == "2", f"Expected UTG (player 2, dealer) to act first, got {current.username}"
+    
+    @pytest.mark.asyncio
+    async def test_four_player_utg_acts_first_preflop(self):
+        """In 4 players, UTG should act first preflop."""
+        table = Table(table_id="test", small_blind=1, big_blind=2)
+        p1 = make_player("1", chips=100, seat=0)
+        p2 = make_player("2", chips=100, seat=1)
+        p3 = make_player("3", chips=100, seat=2)
+        p4 = make_player("4", chips=100, seat=3)
+        table.add_player(p1)
+        table.add_player(p2)
+        table.add_player(p3)
+        table.add_player(p4)
+        # Set dealer_seat=0 so after _advance_dealer it becomes seat 1
+        # Then: seat 1 = dealer, seat 2 = SB, seat 3 = BB, seat 0 = UTG
+        table.dealer_seat = 0
+        
+        await table.start_hand()
+        
+        # After _advance_dealer: dealer is seat 1
+        # Order: [seat 2 (SB), seat 3 (BB), seat 0 (UTG), seat 1 (dealer)]
+        assert p3.current_bet == 1, f"Expected p3 (seat 2) to be SB"
+        assert p4.current_bet == 2, f"Expected p4 (seat 3) to be BB"
+        
+        # First to act should be UTG (seat 0, player 1)
+        current = table.current_betting_round.get_current_player()
+        assert current.user_id == "1", f"Expected UTG (player 1) to act first, got {current.username}"
+    
+    @pytest.mark.asyncio
+    async def test_postflop_bb_acts_first(self):
+        """Post-flop, first active player after dealer should act first (BB in heads-up)."""
+        table = Table(table_id="test", small_blind=1, big_blind=2)
+        p1 = make_player("1", chips=100, seat=0)
+        p2 = make_player("2", chips=100, seat=1)
+        table.add_player(p1)
+        table.add_player(p2)
+        table.dealer_seat = 0  # After advance: dealer is seat 1
+        
+        await table.start_hand()
+        
+        # After advance: seat 1 = dealer/SB (p2), seat 0 = BB (p1)
+        # Preflop: SB (p2) acts first
+        current = table.current_betting_round.get_current_player()
+        assert current.user_id == "2", "SB should act first preflop in heads-up"
+        await table.process_action("2", Action(type=ActionType.CALL))  # SB calls BB
+        
+        current = table.current_betting_round.get_current_player()
+        assert current.user_id == "1", "BB should act second preflop"
+        await table.process_action("1", Action(type=ActionType.CHECK))  # BB checks
+        
+        # Should now be on the flop
+        assert table.state == TableState.FLOP
+        
+        # Post-flop, first player after dealer acts first
+        # Dealer is seat 1, so seat 0 (BB, p1) acts first
+        current = table.current_betting_round.get_current_player()
+        assert current.user_id == "1", f"Expected BB (player 1) to act first on flop, got {current.username}"
+
+
 class TestSerialization:
     """Test table state serialization."""
     

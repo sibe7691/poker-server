@@ -300,11 +300,27 @@ class Table:
             for player in self.players.values():
                 player.current_bet = 0
         
+        # Determine starting position
+        # Preflop: action starts with player after BB (UTG)
+        # - Heads-up: BB is at index 0, so UTG/SB is at index 1
+        # - Non-heads-up: BB is at index 1, so UTG is at index 2
+        # Post-flop: action starts with first active player after dealer (index 0)
+        start_position = 0
+        if self.state == TableState.PREFLOP and len(active_players) >= 2:
+            if len(active_players) == 2:
+                # Heads-up: SB (dealer) acts first preflop, BB is at index 0
+                start_position = 1
+            else:
+                # Non-heads-up: UTG acts first (player after BB)
+                # SB is at index 0, BB is at index 1, UTG is at index 2
+                start_position = 2
+        
         self.current_betting_round = BettingRound(
             players=active_players,
             small_blind=self.small_blind,
             big_blind=self.big_blind,
             is_preflop=(self.state == TableState.PREFLOP),
+            start_position=start_position,
         )
         
         if self.state == TableState.PREFLOP:

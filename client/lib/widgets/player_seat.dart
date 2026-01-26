@@ -6,7 +6,7 @@ import 'package:poker_app/models/player.dart';
 import 'package:poker_app/widgets/playing_card.dart';
 
 /// A player seat widget showing player info, chips, and cards
-class PlayerSeat extends StatelessWidget {
+class PlayerSeat extends StatefulWidget {
   const PlayerSeat({
     required this.player,
     super.key,
@@ -20,19 +20,83 @@ class PlayerSeat extends StatelessWidget {
   final bool isCurrentTurn;
   final bool isSmallBlind;
   final bool isBigBlind;
-  final int? lastAction; // For showing action animation
+  final PlayerAction? lastAction;
   final GamePhase gamePhase;
 
+  @override
+  State<PlayerSeat> createState() => _PlayerSeatState();
+}
+
+class _PlayerSeatState extends State<PlayerSeat>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  PlayerAction? _displayedAction;
+
   /// Whether the player is out of chips and waiting for a rebuy
-  bool get _isOutOfChips => player.chips == 0 && !player.isAllIn;
+  bool get _isOutOfChips => widget.player.chips == 0 && !widget.player.isAllIn;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      reverseDuration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+
+    // Show action if already set
+    if (widget.lastAction != null) {
+      _showAction(widget.lastAction!);
+    }
+  }
+
+  @override
+  void didUpdateWidget(PlayerSeat oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Show new action when it changes
+    if (widget.lastAction != null &&
+        widget.lastAction != oldWidget.lastAction) {
+      _showAction(widget.lastAction!);
+    }
+  }
+
+  void _showAction(PlayerAction action) {
+    setState(() {
+      _displayedAction = action;
+    });
+    _animationController.forward(from: 0).then((_) {
+      // Hold for a moment, then fade out
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (mounted) {
+          _animationController.reverse().then((_) {
+            if (mounted) {
+              setState(() {
+                _displayedAction = null;
+              });
+            }
+          });
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     // Only show cards during active game phases, not when waiting
-    final isGameActive = gamePhase != GamePhase.waiting;
+    final isGameActive = widget.gamePhase != GamePhase.waiting;
     final shouldShowCards =
         isGameActive &&
-        (player.holeCards.isNotEmpty || player.hasCards) &&
+        (widget.player.holeCards.isNotEmpty || widget.player.hasCards) &&
         !_isOutOfChips;
 
     return Opacity(
@@ -43,19 +107,72 @@ class PlayerSeat extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             // Cards (only if player has cards and game is active)
-            if (shouldShowCards && !player.isFolded)
+            if (shouldShowCards && !widget.player.isFolded)
               _buildCards()
-            else if (shouldShowCards && player.isFolded)
+            else if (shouldShowCards && widget.player.isFolded)
               _buildFoldedCards(),
             if (shouldShowCards) const SizedBox(height: 4),
-            // Player info container
-            _buildPlayerInfo(context),
+            // Player info container with action label overlay
+            _buildPlayerInfoWithActionOverlay(context),
             // Note: Bet chips are now rendered separately in PokerTable
             // to position them on the table surface
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildPlayerInfoWithActionOverlay(BuildContext context) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // Player info container (base layer)
+        _buildPlayerInfo(context),
+        // Action label overlay (top layer)
+        if (_displayedAction != null) _buildActionLabel(),
+      ],
+    );
+  }
+
+  Widget _buildActionLabel() {
+    final (label, color) = _getActionDisplay(_displayedAction!);
+
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.6),
+              blurRadius: 10,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  (String, Color) _getActionDisplay(PlayerAction action) {
+    return switch (action) {
+      PlayerAction.fold => ('FOLD', Colors.grey.shade600),
+      PlayerAction.check => ('CHECK', PokerTheme.chipBlue),
+      PlayerAction.call => ('CALL', PokerTheme.tableGreen),
+      PlayerAction.bet => ('BET', PokerTheme.goldAccent),
+      PlayerAction.raise => ('RAISE', PokerTheme.chipRed),
+      PlayerAction.allIn => ('ALL IN', PokerTheme.chipRed),
+    };
   }
 
   Widget _buildFoldedCards() {
@@ -67,9 +184,9 @@ class PlayerSeat extends StatelessWidget {
 
   Widget _buildCards() {
     return HoleCards(
-      cards: player.holeCards,
-      isHidden: player.holeCards.isEmpty && !player.isYou,
-      isSmall: !player.isYou,
+      cards: widget.player.holeCards,
+      isHidden: widget.player.holeCards.isEmpty && !widget.player.isYou,
+      isSmall: !widget.player.isYou,
     );
   }
 
@@ -78,14 +195,14 @@ class PlayerSeat extends StatelessWidget {
     List<Color> gradientColors;
     if (_isOutOfChips) {
       gradientColors = [Colors.grey.shade700, Colors.grey.shade800];
-    } else if (player.isFolded) {
+    } else if (widget.player.isFolded) {
       gradientColors = [Colors.grey.shade800, Colors.grey.shade900];
-    } else if (isCurrentTurn) {
+    } else if (widget.isCurrentTurn) {
       gradientColors = [
         PokerTheme.goldAccent.withValues(alpha: 0.3),
         PokerTheme.surfaceLight,
       ];
-    } else if (player.isYou) {
+    } else if (widget.player.isYou) {
       gradientColors = [
         PokerTheme.tableFelt.withValues(alpha: 0.5),
         PokerTheme.surfaceLight,
@@ -105,14 +222,14 @@ class PlayerSeat extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isCurrentTurn
+          color: widget.isCurrentTurn
               ? PokerTheme.goldAccent
-              : player.isYou
+              : widget.player.isYou
               ? PokerTheme.tableFelt
               : Colors.transparent,
-          width: isCurrentTurn ? 2 : 1,
+          width: widget.isCurrentTurn ? 2 : 1,
         ),
-        boxShadow: isCurrentTurn
+        boxShadow: widget.isCurrentTurn
             ? [
                 BoxShadow(
                   color: PokerTheme.goldAccent.withValues(alpha: 0.5),
@@ -130,14 +247,15 @@ class PlayerSeat extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (isSmallBlind) _buildBadge('SB', PokerTheme.chipBlue),
-              if (isBigBlind) _buildBadge('BB', PokerTheme.chipRed),
-              if (isSmallBlind || isBigBlind) const SizedBox(width: 4),
+              if (widget.isSmallBlind) _buildBadge('SB', PokerTheme.chipBlue),
+              if (widget.isBigBlind) _buildBadge('BB', PokerTheme.chipRed),
+              if (widget.isSmallBlind || widget.isBigBlind)
+                const SizedBox(width: 4),
               Flexible(
                 child: Text(
-                  player.username,
+                  widget.player.username,
                   style: TextStyle(
-                    color: player.isFolded ? Colors.grey : Colors.white,
+                    color: widget.player.isFolded ? Colors.grey : Colors.white,
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
@@ -145,7 +263,7 @@ class PlayerSeat extends StatelessWidget {
                   maxLines: 1,
                 ),
               ),
-              if (!player.isConnected)
+              if (!widget.player.isConnected)
                 const Padding(
                   padding: EdgeInsets.only(left: 4),
                   child: Icon(Icons.wifi_off, size: 14, color: Colors.orange),
@@ -181,15 +299,17 @@ class PlayerSeat extends StatelessWidget {
                 Icon(
                   Icons.circle,
                   size: 12,
-                  color: player.isAllIn
+                  color: widget.player.isAllIn
                       ? PokerTheme.chipRed
                       : PokerTheme.goldAccent,
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  player.isAllIn ? 'ALL IN' : formatChips(player.chips),
+                  widget.player.isAllIn
+                      ? 'ALL IN'
+                      : formatChips(widget.player.chips),
                   style: TextStyle(
-                    color: player.isAllIn
+                    color: widget.player.isAllIn
                         ? PokerTheme.chipRed
                         : PokerTheme.goldAccent,
                     fontWeight: FontWeight.bold,

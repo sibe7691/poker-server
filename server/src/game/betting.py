@@ -44,6 +44,7 @@ class BettingRound:
         small_blind: int = 0,
         big_blind: int = 0,
         is_preflop: bool = False,
+        start_position: int = 0,
     ):
         """Initialize betting round.
         
@@ -52,6 +53,7 @@ class BettingRound:
             small_blind: Small blind amount.
             big_blind: Big blind amount.
             is_preflop: Whether this is the preflop round.
+            start_position: Index of first player to act.
         """
         self.players = players
         self.small_blind = small_blind
@@ -61,7 +63,7 @@ class BettingRound:
         self.current_bet = 0
         self.min_raise = big_blind
         self.last_raiser: Optional[str] = None
-        self._action_on: int = 0  # Index into players
+        self._action_on: int = start_position % len(players) if players else 0
         self._actions_taken: dict[str, int] = {}  # user_id -> number of actions
         self._round_complete = False
     
