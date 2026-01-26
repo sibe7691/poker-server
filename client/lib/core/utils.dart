@@ -35,9 +35,9 @@ void showMessage(BuildContext context, String message, {bool isError = false}) {
 /// Get position name for seat relative to dealer
 String getPositionName(int seat, int dealerSeat, int playerCount) {
   if (playerCount < 2) return '';
-  
+
   final relativePos = (seat - dealerSeat + playerCount) % playerCount;
-  
+
   if (relativePos == 0) return 'BTN';
   if (relativePos == 1) return 'SB';
   if (relativePos == 2) return 'BB';
@@ -50,10 +50,9 @@ String getPositionName(int seat, int dealerSeat, int playerCount) {
 
 /// Debouncer for action buttons
 class Debouncer {
+  Debouncer({this.delay = const Duration(milliseconds: 500)});
   final Duration delay;
   DateTime? _lastCall;
-
-  Debouncer({this.delay = const Duration(milliseconds: 500)});
 
   bool call() {
     final now = DateTime.now();

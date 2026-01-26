@@ -1,25 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../core/theme.dart';
-import '../core/utils.dart';
+import 'package:poker_app/core/theme.dart';
+import 'package:poker_app/core/utils.dart';
 
 /// Displays the pot amount with animation
 class PotDisplay extends StatelessWidget {
-  final int pot;
-  final int? sidePot;
-
   const PotDisplay({
-    super.key,
     required this.pot,
+    super.key,
     this.sidePot,
   });
+  final int pot;
+  final int? sidePot;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           colors: [
             Colors.black54,
             Colors.black38,
@@ -27,11 +26,11 @@ class PotDisplay extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: PokerTheme.goldAccent.withValues(alpha: 0.5)),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
             color: Colors.black45,
             blurRadius: 8,
-            offset: const Offset(0, 4),
+            offset: Offset(0, 4),
           ),
         ],
       ),
@@ -43,7 +42,7 @@ class PotDisplay extends StatelessWidget {
             children: [
               _buildChipStack(),
               const SizedBox(width: 8),
-              Text(
+              const Text(
                 'POT',
                 style: TextStyle(
                   color: Colors.white60,
@@ -56,19 +55,21 @@ class PotDisplay extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            formatChips(pot),
-            style: const TextStyle(
-              color: PokerTheme.goldAccent,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ).animate(
-            key: ValueKey(pot),
-          ).scale(
-            begin: const Offset(1.2, 1.2),
-            end: const Offset(1, 1),
-            duration: 200.ms,
-          ),
+                formatChips(pot),
+                style: const TextStyle(
+                  color: PokerTheme.goldAccent,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              )
+              .animate(
+                key: ValueKey(pot),
+              )
+              .scale(
+                begin: const Offset(1.2, 1.2),
+                end: const Offset(1, 1),
+                duration: 200.ms,
+              ),
           if (sidePot != null && sidePot! > 0)
             Text(
               'Side pot: ${formatChips(sidePot!)}',
@@ -114,7 +115,7 @@ class PotDisplay extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(2),
-        border: Border.all(color: Colors.white24, width: 1),
+        border: Border.all(color: Colors.white24),
       ),
     );
   }
@@ -122,14 +123,13 @@ class PotDisplay extends StatelessWidget {
 
 /// Game phase indicator
 class PhaseIndicator extends StatelessWidget {
-  final String phase;
-  final int handNumber;
-
   const PhaseIndicator({
-    super.key,
     required this.phase,
     required this.handNumber,
+    super.key,
   });
+  final String phase;
+  final int handNumber;
 
   @override
   Widget build(BuildContext context) {

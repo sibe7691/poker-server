@@ -2,14 +2,6 @@ import 'package:equatable/equatable.dart';
 
 /// Authentication state
 class AuthState extends Equatable {
-  final String? userId;
-  final String? username;
-  final String? role;
-  final String? accessToken;
-  final String? refreshToken;
-  final bool isLoading;
-  final String? error;
-
   const AuthState({
     this.userId,
     this.username,
@@ -19,6 +11,33 @@ class AuthState extends Equatable {
     this.isLoading = false,
     this.error,
   });
+
+  /// Create initial/logged out state
+  factory AuthState.initial() => const AuthState();
+
+  /// Create authenticated state
+  factory AuthState.authenticated({
+    required String userId,
+    required String username,
+    required String accessToken,
+    required String refreshToken,
+    String? role,
+  }) {
+    return AuthState(
+      userId: userId,
+      username: username,
+      role: role,
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+    );
+  }
+  final String? userId;
+  final String? username;
+  final String? role;
+  final String? accessToken;
+  final String? refreshToken;
+  final bool isLoading;
+  final String? error;
 
   /// Whether the user is authenticated
   bool get isAuthenticated => accessToken != null && userId != null;
@@ -46,11 +65,8 @@ class AuthState extends Equatable {
     );
   }
 
-  /// Create initial/logged out state
-  factory AuthState.initial() => const AuthState();
-
   /// Create loading state
-  AuthState loading() => copyWith(isLoading: true, error: null);
+  AuthState loading() => copyWith(isLoading: true);
 
   /// Create error state
   AuthState withError(String message) => copyWith(
@@ -58,26 +74,14 @@ class AuthState extends Equatable {
     error: message,
   );
 
-  /// Create authenticated state
-  factory AuthState.authenticated({
-    required String userId,
-    required String username,
-    required String accessToken,
-    required String refreshToken,
-    String? role,
-  }) {
-    return AuthState(
-      userId: userId,
-      username: username,
-      role: role,
-      accessToken: accessToken,
-      refreshToken: refreshToken,
-      isLoading: false,
-    );
-  }
-
   @override
   List<Object?> get props => [
-    userId, username, role, accessToken, refreshToken, isLoading, error
+    userId,
+    username,
+    role,
+    accessToken,
+    refreshToken,
+    isLoading,
+    error,
   ];
 }

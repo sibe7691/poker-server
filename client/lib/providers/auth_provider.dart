@@ -1,21 +1,19 @@
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/auth_state.dart';
-import '../services/auth_service.dart';
+import 'package:poker_app/models/auth_state.dart';
+import 'package:poker_app/services/auth_service.dart';
 
 /// Auth service provider
 final authServiceProvider = Provider<AuthService>((ref) {
   final service = AuthService();
-  ref.onDispose(() => service.dispose());
+  ref.onDispose(service.dispose);
   return service;
 });
 
 /// Auth state notifier
 class AuthNotifier extends StateNotifier<AuthState> {
-  final AuthService _authService;
-
   AuthNotifier(this._authService) : super(AuthState.initial());
+  final AuthService _authService;
 
   /// Initialize by loading saved auth
   Future<void> initialize() async {
@@ -26,7 +24,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final loadedState = await _authService.loadSavedAuth();
     state = loadedState;
     if (kIsWeb) {
-      debugPrint('AuthNotifier: Initialization complete - isAuthenticated: ${state.isAuthenticated}');
+      debugPrint(
+        'AuthNotifier: Initialization complete - '
+        'isAuthenticated: ${state.isAuthenticated}',
+      );
     }
   }
 
@@ -55,7 +56,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Clear any error
   void clearError() {
     if (state.error != null) {
-      state = state.copyWith(error: null);
+      state = state.copyWith();
     }
   }
 
@@ -64,7 +65,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<String?> refreshAccessToken() async {
     if (!state.isAuthenticated || state.refreshToken == null) {
       if (kIsWeb) {
-        debugPrint('AuthNotifier: Cannot refresh - not authenticated or no refresh token');
+        debugPrint(
+          'AuthNotifier: Cannot refresh - '
+          'not authenticated or no refresh token',
+        );
       }
       return null;
     }
@@ -95,9 +99,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   /// Force update the state (used after token refresh)
-  void updateState(AuthState newState) {
-    state = newState;
-  }
+  // ignore: use_setters_to_change_properties
+  void updateState(AuthState newState) => state = newState;
 }
 
 /// Auth state provider

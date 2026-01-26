@@ -1,18 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
-import '../core/theme.dart';
-import '../models/card.dart';
+import 'package:poker_app/core/theme.dart';
+import 'package:poker_app/models/card.dart';
 
 /// A playing card widget
 class PlayingCardWidget extends StatelessWidget {
-  final PlayingCard? card;
-  final bool isFaceDown;
-  final double width;
-  final double height;
-  final bool isHighlighted;
-  final VoidCallback? onTap;
-
   const PlayingCardWidget({
     super.key,
     this.card,
@@ -22,6 +15,12 @@ class PlayingCardWidget extends StatelessWidget {
     this.isHighlighted = false,
     this.onTap,
   });
+  final PlayingCard? card;
+  final bool isFaceDown;
+  final double width;
+  final double height;
+  final bool isHighlighted;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +75,7 @@ class PlayingCardWidget extends StatelessWidget {
           height: height * 0.8,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: Colors.white24, width: 1),
+            border: Border.all(color: Colors.white24),
           ),
           child: const Center(
             child: Text(
@@ -105,7 +104,6 @@ class PlayingCardWidget extends StatelessWidget {
           left: 0,
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
                 card.rank.code,
@@ -142,7 +140,6 @@ class PlayingCardWidget extends StatelessWidget {
             angle: 3.14159, // 180 degrees
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
                   card.rank.code,
@@ -172,10 +169,9 @@ class PlayingCardWidget extends StatelessWidget {
 
 /// A mini card for compact display
 class MiniCard extends StatelessWidget {
+  const MiniCard({required this.card, super.key, this.size = 32});
   final PlayingCard card;
   final double size;
-
-  const MiniCard({super.key, required this.card, this.size = 32});
 
   @override
   Widget build(BuildContext context) {
@@ -205,9 +201,8 @@ class MiniCard extends StatelessWidget {
 
 /// Community cards display with animations
 class CommunityCards extends StatelessWidget {
+  const CommunityCards({required this.cards, super.key});
   final List<PlayingCard> cards;
-
-  const CommunityCards({super.key, required this.cards});
 
   @override
   Widget build(BuildContext context) {
@@ -243,16 +238,15 @@ class CommunityCards extends StatelessWidget {
 
 /// Hole cards display (player's cards)
 class HoleCards extends StatelessWidget {
-  final List<PlayingCard> cards;
-  final bool isHidden;
-  final bool isSmall;
-
   const HoleCards({
-    super.key,
     required this.cards,
+    super.key,
     this.isHidden = false,
     this.isSmall = false,
   });
+  final List<PlayingCard> cards;
+  final bool isHidden;
+  final bool isSmall;
 
   @override
   Widget build(BuildContext context) {

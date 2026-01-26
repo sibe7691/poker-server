@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../core/theme.dart';
-import '../../models/models.dart';
-import '../../providers/providers.dart';
+import 'package:poker_app/core/theme.dart';
+import 'package:poker_app/models/models.dart';
+import 'package:poker_app/providers/providers.dart';
 
 /// Dialog for admin to manage player chips (buy-in/cash-out)
 class CashierDialog extends ConsumerStatefulWidget {
+  const CashierDialog({required this.gameState, super.key});
   final GameState gameState;
-
-  const CashierDialog({super.key, required this.gameState});
 
   @override
   ConsumerState<CashierDialog> createState() => _CashierDialogState();
@@ -30,7 +28,7 @@ class _CashierDialogState extends ConsumerState<CashierDialog> {
   TextEditingController _getController(String playerId) {
     return _controllers.putIfAbsent(
       playerId,
-      () => TextEditingController(),
+      TextEditingController.new,
     );
   }
 
@@ -47,7 +45,9 @@ class _CashierDialogState extends ConsumerState<CashierDialog> {
       return;
     }
 
-    ref.read(gameControllerProvider.notifier).giveChips(
+    ref
+        .read(gameControllerProvider.notifier)
+        .giveChips(
           playerId: player.username,
           amount: amount,
         );
@@ -84,7 +84,9 @@ class _CashierDialogState extends ConsumerState<CashierDialog> {
       return;
     }
 
-    ref.read(gameControllerProvider.notifier).takeChips(
+    ref
+        .read(gameControllerProvider.notifier)
+        .takeChips(
           playerId: player.username,
           amount: amount,
         );
@@ -100,7 +102,10 @@ class _CashierDialogState extends ConsumerState<CashierDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final players = widget.gameState.players;
+    // Watch the game state provider to get live updates when chips change
+    final gameStateAsync = ref.watch(gameStateProvider);
+    final gameState = gameStateAsync.valueOrNull ?? widget.gameState;
+    final players = gameState.players;
 
     return Dialog(
       backgroundColor: PokerTheme.surfaceDark,
@@ -159,7 +164,7 @@ class _CashierDialogState extends ConsumerState<CashierDialog> {
                       shrinkWrap: true,
                       padding: const EdgeInsets.all(16),
                       itemCount: players.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      separatorBuilder: (_, _) => const SizedBox(height: 12),
                       itemBuilder: (context, index) {
                         final player = players[index];
                         return _PlayerChipRow(
@@ -179,17 +184,16 @@ class _CashierDialogState extends ConsumerState<CashierDialog> {
 }
 
 class _PlayerChipRow extends StatelessWidget {
-  final Player player;
-  final TextEditingController controller;
-  final VoidCallback onGive;
-  final VoidCallback onTake;
-
   const _PlayerChipRow({
     required this.player,
     required this.controller,
     required this.onGive,
     required this.onTake,
   });
+  final Player player;
+  final TextEditingController controller;
+  final VoidCallback onGive;
+  final VoidCallback onTake;
 
   @override
   Widget build(BuildContext context) {

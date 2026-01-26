@@ -3,16 +3,13 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import 'package:poker_app/core/constants.dart';
+import 'package:poker_app/models/auth_state.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import '../core/constants.dart';
-import '../models/auth_state.dart';
 
 class AuthService {
   // Use FlutterSecureStorage for mobile (more secure)
-  final FlutterSecureStorage _secureStorage = FlutterSecureStorage(
-    aOptions: const AndroidOptions(encryptedSharedPreferences: true),
-  );
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
   final http.Client _client = http.Client();
 
@@ -23,7 +20,7 @@ class AuthService {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(key, value);
         debugPrint('Web Storage: Saved "$key"');
-      } catch (e) {
+      } on Exception catch (e) {
         debugPrint('Web Storage: Error writing "$key": $e');
       }
     } else {
@@ -41,12 +38,12 @@ class AuthService {
           'Web Storage: Read "$key" = ${value != null ? "found" : "null"}',
         );
         return value;
-      } catch (e) {
+      } on Exception catch (e) {
         debugPrint('Web Storage: Error reading "$key": $e');
         return null;
       }
     } else {
-      return await _secureStorage.read(key: key);
+      return _secureStorage.read(key: key);
     }
   }
 
@@ -56,7 +53,7 @@ class AuthService {
       try {
         final prefs = await SharedPreferences.getInstance();
         await prefs.remove(key);
-      } catch (e) {
+      } on Exception catch (e) {
         debugPrint('Web Storage: Error deleting "$key": $e');
       }
     } else {
@@ -80,7 +77,7 @@ class AuthService {
         final error = _parseError(response);
         return AuthState.initial().withError(error);
       }
-    } catch (e) {
+    } on Exception catch (e) {
       return AuthState.initial().withError('Connection error: $e');
     }
   }
@@ -101,7 +98,7 @@ class AuthService {
         final error = _parseError(response);
         return AuthState.initial().withError(error);
       }
-    } catch (e) {
+    } on Exception catch (e) {
       return AuthState.initial().withError('Connection error: $e');
     }
   }
@@ -130,10 +127,9 @@ class AuthService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
 
-        // Refresh endpoint may return different structure - extract what we need
+        // Refresh endpoint may return different structure
         final newAccessToken = data['access_token'] as String?;
-        final newRefreshToken =
-            data['refresh_token'] as String? ?? refreshToken;
+        final newRefresh = data['refresh_token'] as String? ?? refreshToken;
 
         if (newAccessToken == null) {
           if (kIsWeb) {
@@ -147,7 +143,7 @@ class AuthService {
           userId: data['user_id'] as String? ?? userId,
           username: data['username'] as String? ?? username,
           accessToken: newAccessToken,
-          refreshToken: newRefreshToken,
+          refreshToken: newRefresh,
           role: data['role'] as String? ?? role,
         );
 
@@ -166,7 +162,7 @@ class AuthService {
         debugPrint('Web: Refresh failed with status ${response.statusCode}');
       }
       return null;
-    } catch (e) {
+    } on Exception catch (e) {
       if (kIsWeb) {
         debugPrint('Web: Refresh error: $e');
       }
@@ -188,7 +184,7 @@ class AuthService {
         return _handleAuthResponse(data);
       }
       return null;
-    } catch (e) {
+    } on Exception {
       return null;
     }
   }
@@ -203,7 +199,7 @@ class AuthService {
       role: data['role'] as String?,
     );
 
-    // Persist to storage (uses SharedPreferences on web, SecureStorage on mobile)
+    // Persist to storage (SharedPreferences on web, SecureStorage on mobile)
     await _write(StorageKeys.userId, state.userId!);
     await _write(StorageKeys.username, state.username!);
     await _write(StorageKeys.accessToken, state.accessToken!);
@@ -234,7 +230,9 @@ class AuthService {
 
       if (kIsWeb) {
         debugPrint(
-          'Web: userId=${userId != null}, username=${username != null}, accessToken=${accessToken != null}, refreshToken=${refreshToken != null}, role=$role',
+          'Web: userId=${userId != null}, username=${username != null}, '
+          'accessToken=${accessToken != null}, '
+          'refreshToken=${refreshToken != null}, role=$role',
         );
       }
 
@@ -276,7 +274,7 @@ class AuthService {
         }
       }
       return AuthState.initial();
-    } catch (e, stack) {
+    } on Exception catch (e, stack) {
       if (kIsWeb) {
         debugPrint('Web: ERROR loading saved auth: $e');
         debugPrint('Web: Stack: $stack');
@@ -299,9 +297,9 @@ class AuthService {
 
   String _parseError(http.Response response) {
     try {
-      final data = jsonDecode(response.body);
-      return data['detail'] ?? data['message'] ?? 'Unknown error';
-    } catch (_) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return (data['detail'] ?? data['message'] ?? 'Unknown error') as String;
+    } on Exception catch (_) {
       return 'Error: ${response.statusCode}';
     }
   }

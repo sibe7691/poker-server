@@ -1,15 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:poker_app/core/theme.dart';
+import 'package:poker_app/features/auth/login_screen.dart';
+import 'package:poker_app/features/game/game_screen.dart';
+import 'package:poker_app/features/lobby/create_table_screen.dart';
+import 'package:poker_app/features/lobby/lobby_screen.dart';
+import 'package:poker_app/providers/providers.dart';
 
-import 'core/theme.dart';
-import 'features/auth/login_screen.dart';
-import 'features/game/game_screen.dart';
-import 'features/lobby/create_table_screen.dart';
-import 'features/lobby/lobby_screen.dart';
-import 'providers/providers.dart';
+// Fire-and-forget futures are intentional in initState callbacks
+// ignore_for_file: discarded_futures
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -48,8 +52,6 @@ class AuthChangeNotifier extends ChangeNotifier {
   bool _isAuthenticated = false;
   bool _initialized = false;
 
-  bool get initialized => _initialized;
-
   void update({required bool isAuthenticated, required bool initialized}) {
     if (_isAuthenticated != isAuthenticated || _initialized != initialized) {
       _isAuthenticated = isAuthenticated;
@@ -69,10 +71,9 @@ class _PokerAppState extends ConsumerState<PokerApp> {
     super.initState();
     _authNotifier = AuthChangeNotifier();
     _setupRouter();
-    // Defer initialization to after the first frame to avoid setState during mount
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeAuth();
-    });
+    // Defer initialization to after the first frame
+    // to avoid setState during mount
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initializeAuth());
   }
 
   @override
@@ -86,13 +87,15 @@ class _PokerAppState extends ConsumerState<PokerApp> {
     await ref.read(authProvider.notifier).initialize();
     if (mounted) {
       final isAuth = ref.read(isAuthenticatedProvider);
-      if (kIsWeb)
+      if (kIsWeb) {
         debugPrint('Main: Auth init complete - isAuthenticated: $isAuth');
+      }
       setState(() => _initialized = true);
       // Notify the router that auth state has changed
       _authNotifier.update(isAuthenticated: isAuth, initialized: true);
-      if (kIsWeb)
+      if (kIsWeb) {
         debugPrint('Main: Router notified, should redirect if authenticated');
+      }
     }
   }
 
@@ -113,20 +116,23 @@ class _PokerAppState extends ConsumerState<PokerApp> {
 
         if (kIsWeb) {
           debugPrint(
-            'Router: Checking redirect - isAuth: $isAuthenticated, route: $location',
+            'Router: Checking redirect - isAuth: $isAuthenticated, '
+            'route: $location',
           );
         }
 
         if (!isAuthenticated && !isLoginRoute) {
-          if (kIsWeb)
+          if (kIsWeb) {
             debugPrint('Router: Redirecting to /login (not authenticated)');
+          }
           return '/login';
         }
         if (isAuthenticated && (isLoginRoute || isRootRoute)) {
-          if (kIsWeb)
+          if (kIsWeb) {
             debugPrint(
-              'Router: Redirecting to /lobby (authenticated on login/root)',
+              'Router: Redirecting to /lobby (authenticated on login)',
             );
+          }
           return '/lobby';
         }
         return null;
@@ -176,7 +182,7 @@ class _PokerAppState extends ConsumerState<PokerApp> {
     }
 
     return MaterialApp.router(
-      title: 'Seven Deuce - Texas Hold\'Em Poker',
+      title: "Seven Deuce - Texas Hold'Em Poker",
       theme: PokerTheme.darkTheme,
       routerConfig: _router,
       debugShowCheckedModeBanner: false,

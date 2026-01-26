@@ -19,14 +19,12 @@ class PokerTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      colorScheme: ColorScheme.dark(
+      colorScheme: const ColorScheme.dark(
         primary: tableFelt,
         secondary: goldAccent,
         surface: surfaceDark,
         error: chipRed,
         onPrimary: Colors.white,
-        onSecondary: Colors.black,
-        onSurface: Colors.white,
       ),
       scaffoldBackgroundColor: darkBackground,
       textTheme: GoogleFonts.interTextTheme(
@@ -84,7 +82,10 @@ class PokerTheme {
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: goldAccent, width: 2),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: surfaceLight,

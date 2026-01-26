@@ -1,29 +1,31 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:poker_app/core/constants.dart';
 
-import '../core/constants.dart';
+// Fire-and-forget futures are intentional in animation controllers
+// ignore_for_file: discarded_futures
 
 /// A full-screen loading overlay with animated poker suits.
 ///
 /// When displayed, dims the entire screen and shows an animated
 /// loading indicator that cycles through the four poker suits.
 class FullScreenLoadingIndicator extends StatelessWidget {
-  /// Optional message to display below the loading indicator.
-  final String? message;
-
-  /// Background dim opacity (0.0 to 1.0). Defaults to 0.7.
-  final double dimOpacity;
-
   const FullScreenLoadingIndicator({
     super.key,
     this.message,
     this.dimOpacity = 0.7,
   });
 
+  /// Optional message to display below the loading indicator.
+  final String? message;
+
+  /// Background dim opacity (0.0 to 1.0). Defaults to 0.7.
+  final double dimOpacity;
+
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return ColoredBox(
       color: Colors.black.withValues(alpha: dimOpacity),
       child: Center(
         child: Column(
@@ -94,38 +96,38 @@ class _SuitLoadingAnimationState extends State<_SuitLoadingAnimation>
 
     // Fade out then back in
     _fadeAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 50),
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 1, end: 0), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 0, end: 1), weight: 50),
     ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
     // Scale down then back up
     _scaleAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.6), weight: 50),
-      TweenSequenceItem(tween: Tween(begin: 0.6, end: 1.0), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 1, end: 0.6), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 0.6, end: 1), weight: 50),
     ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
     // Rotate during transition
-    _rotateAnimation = Tween<double>(begin: 0.0, end: math.pi * 2).animate(
+    _rotateAnimation = Tween<double>(begin: 0, end: math.pi * 2).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
 
     // Change suit at the midpoint of animation
-    _controller.addListener(() {
-      if (_controller.value >= 0.5 && _controller.value < 0.52) {
-        setState(() {
-          _currentSuitIndex = (_currentSuitIndex + 1) % _suits.length;
-        });
-      }
-    });
-
-    _controller.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        _controller.reset();
-        _controller.forward();
-      }
-    });
-
-    _controller.forward();
+    _controller
+      ..addListener(() {
+        if (_controller.value >= 0.5 && _controller.value < 0.52) {
+          setState(() {
+            _currentSuitIndex = (_currentSuitIndex + 1) % _suits.length;
+          });
+        }
+      })
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          _controller
+            ..reset()
+            ..forward();
+        }
+      })
+      ..forward();
   }
 
   @override

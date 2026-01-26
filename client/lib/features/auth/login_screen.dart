@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/theme.dart';
-import '../../providers/auth_provider.dart';
+import 'package:poker_app/core/theme.dart';
+import 'package:poker_app/models/auth_state.dart';
+import 'package:poker_app/providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -119,7 +120,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Texas Hold\'Em Poker',
+          "Texas Hold'Em Poker",
           style: TextStyle(
             fontSize: 16,
             color: Colors.white.withValues(alpha: 0.7),
@@ -130,7 +131,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  Widget _buildForm(dynamic authState) {
+  Widget _buildForm(AuthState authState) {
     return Card(
       color: PokerTheme.surfaceDark,
       shape: RoundedRectangleBorder(

@@ -1,29 +1,27 @@
 import 'package:flutter/material.dart';
-
-import '../core/constants.dart';
-import '../core/theme.dart';
-import '../core/utils.dart';
-import '../models/player.dart';
-import 'playing_card.dart';
+import 'package:poker_app/core/constants.dart';
+import 'package:poker_app/core/theme.dart';
+import 'package:poker_app/core/utils.dart';
+import 'package:poker_app/models/player.dart';
+import 'package:poker_app/widgets/playing_card.dart';
 
 /// A player seat widget showing player info, chips, and cards
 class PlayerSeat extends StatelessWidget {
-  final Player player;
-  final bool isCurrentTurn;
-  final bool isSmallBlind;
-  final bool isBigBlind;
-  final int? lastAction; // For showing action animation
-  final GamePhase gamePhase;
-
   const PlayerSeat({
-    super.key,
     required this.player,
+    super.key,
     this.isCurrentTurn = false,
     this.isSmallBlind = false,
     this.isBigBlind = false,
     this.lastAction,
     this.gamePhase = GamePhase.waiting,
   });
+  final Player player;
+  final bool isCurrentTurn;
+  final bool isSmallBlind;
+  final bool isBigBlind;
+  final int? lastAction; // For showing action animation
+  final GamePhase gamePhase;
 
   /// Whether the player is out of chips and waiting for a rebuy
   bool get _isOutOfChips => player.chips == 0 && !player.isAllIn;
@@ -32,7 +30,8 @@ class PlayerSeat extends StatelessWidget {
   Widget build(BuildContext context) {
     // Only show cards during active game phases, not when waiting
     final isGameActive = gamePhase != GamePhase.waiting;
-    final shouldShowCards = isGameActive && 
+    final shouldShowCards =
+        isGameActive &&
         (player.holeCards.isNotEmpty || player.hasCards) &&
         !_isOutOfChips;
 
@@ -60,9 +59,9 @@ class PlayerSeat extends StatelessWidget {
   }
 
   Widget _buildFoldedCards() {
-    return Opacity(
+    return const Opacity(
       opacity: 0.3,
-      child: HoleCards(cards: const [], isHidden: true, isSmall: true),
+      child: HoleCards(cards: [], isHidden: true, isSmall: true),
     );
   }
 
@@ -126,7 +125,8 @@ class PlayerSeat extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Username with position badges (dealer button is rendered on the table)
+          // Username with position badges (dealer button is rendered
+          // on the table)
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -154,49 +154,50 @@ class PlayerSeat extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           // Chip count or status
-          _isOutOfChips
-              ? Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.account_balance_wallet_outlined,
-                      size: 12,
-                      color: Colors.orange.shade300,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Needs chips',
-                      style: TextStyle(
-                        color: Colors.orange.shade300,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                )
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.circle,
-                      size: 12,
-                      color: player.isAllIn
-                          ? PokerTheme.chipRed
-                          : PokerTheme.goldAccent,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      player.isAllIn ? 'ALL IN' : formatChips(player.chips),
-                      style: TextStyle(
-                        color: player.isAllIn
-                            ? PokerTheme.chipRed
-                            : PokerTheme.goldAccent,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
+          if (_isOutOfChips)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.account_balance_wallet_outlined,
+                  size: 12,
+                  color: Colors.orange.shade300,
                 ),
+                const SizedBox(width: 4),
+                Text(
+                  'Needs chips',
+                  style: TextStyle(
+                    color: Colors.orange.shade300,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            )
+          else
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.circle,
+                  size: 12,
+                  color: player.isAllIn
+                      ? PokerTheme.chipRed
+                      : PokerTheme.goldAccent,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  player.isAllIn ? 'ALL IN' : formatChips(player.chips),
+                  style: TextStyle(
+                    color: player.isAllIn
+                        ? PokerTheme.chipRed
+                        : PokerTheme.goldAccent,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
     );
@@ -224,10 +225,9 @@ class PlayerSeat extends StatelessWidget {
 
 /// Empty seat widget for available positions
 class EmptySeat extends StatelessWidget {
+  const EmptySeat({required this.seatNumber, super.key, this.onTap});
   final int seatNumber;
   final VoidCallback? onTap;
-
-  const EmptySeat({super.key, required this.seatNumber, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -248,7 +248,6 @@ class EmptySeat extends StatelessWidget {
             border: Border.all(
               color: isSelectable ? PokerTheme.goldAccent : Colors.white24,
               width: isSelectable ? 2 : 1,
-              style: BorderStyle.solid,
             ),
             boxShadow: isSelectable
                 ? [

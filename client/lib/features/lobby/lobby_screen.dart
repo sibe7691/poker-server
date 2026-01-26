@@ -1,14 +1,16 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:poker_app/core/theme.dart';
+import 'package:poker_app/models/table_info.dart';
+import 'package:poker_app/providers/providers.dart';
+import 'package:poker_app/widgets/widgets.dart';
 
-import '../../core/theme.dart';
-import '../../models/table_info.dart';
-import '../../providers/providers.dart';
-import '../../services/websocket_service.dart';
-import '../../widgets/widgets.dart';
+// Fire-and-forget futures are intentional in callbacks and event handlers
+// ignore_for_file: discarded_futures
 
 const _loadingMessages = [
   'Shuffling the deck...',
@@ -33,12 +35,14 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   List<TableInfo> _tables = [];
   bool _isLoading = true;
   String? _error;
-  String _loadingMessage = _loadingMessages[Random().nextInt(_loadingMessages.length)];
+  final String _loadingMessage =
+      _loadingMessages[Random().nextInt(_loadingMessages.length)];
 
   @override
   void initState() {
     super.initState();
-    // Defer to after the widget tree is built to avoid modifying provider during build
+    // Defer to after the widget tree is built to avoid modifying provider
+    // during build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _connectAndLoadTables();
     });
@@ -59,7 +63,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       if (!mounted) return;
 
       // Give time for authentication
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future<void>.delayed(const Duration(milliseconds: 500));
 
       if (!mounted) return;
 
@@ -70,7 +74,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         _tables = tables;
         _isLoading = false;
       });
-    } catch (e) {
+    } on Exception catch (e) {
       if (!mounted) return;
       setState(() {
         _error = 'Failed to connect: $e';
@@ -86,8 +90,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   }
 
   void _deleteTable(TableInfo table) {
-    final gameController = ref.read(gameControllerProvider.notifier);
-    gameController.deleteTable(table.tableId);
+    ref.read(gameControllerProvider.notifier).deleteTable(table.tableId);
 
     // Show feedback
     ScaffoldMessenger.of(context).showSnackBar(
@@ -98,7 +101,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     );
   }
 
-  void _logout() async {
+  Future<void> _logout() async {
     final authNotifier = ref.read(authProvider.notifier);
     final gameController = ref.read(gameControllerProvider.notifier);
 
@@ -115,29 +118,30 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     final username = ref.watch(currentUsernameProvider);
 
     // Listen for tables updates
-    ref.listen(tablesListProvider, (previous, next) {
-      next.whenData((tables) {
-        setState(() {
-          _tables = tables;
-          _isLoading = false;
+    ref
+      ..listen(tablesListProvider, (previous, next) {
+        next.whenData((tables) {
+          setState(() {
+            _tables = tables;
+            _isLoading = false;
+          });
         });
+      })
+      // Listen for errors
+      ..listen(wsErrorProvider, (previous, next) {
+        next.whenData((error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(error), backgroundColor: Colors.red),
+          );
+        });
+      })
+      // Listen for connection status changes (for potential
+      // reconnection handling)
+      ..listen(connectionStatusProvider, (previous, next) {
+        // Don't set _isLoading = false here - wait for tables to be fetched
+        // This prevents showing the empty state before the
+        // initial load completes
       });
-    });
-
-    // Listen for errors
-    ref.listen(wsErrorProvider, (previous, next) {
-      next.whenData((error) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error), backgroundColor: Colors.red),
-        );
-      });
-    });
-
-    // Listen for connection status changes (for potential reconnection handling)
-    ref.listen(connectionStatusProvider, (previous, next) {
-      // Don't set _isLoading = false here - wait for tables to be fetched
-      // This prevents showing the empty state before the initial load completes
-    });
 
     return Scaffold(
       appBar: AppBar(
@@ -268,19 +272,18 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 }
 
 class _TableCard extends ConsumerWidget {
-  final TableInfo table;
-  final VoidCallback onJoin;
-  final VoidCallback onDelete;
-
   const _TableCard({
     required this.table,
     required this.onJoin,
     required this.onDelete,
   });
+  final TableInfo table;
+  final VoidCallback onJoin;
+  final VoidCallback onDelete;
 
   void _showContextMenu(BuildContext context, Offset position, bool isAdmin) {
-    final RenderBox overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final overlay =
+        Overlay.of(context).context.findRenderObject()! as RenderBox;
 
     showMenu<String>(
       context: context,
@@ -302,7 +305,7 @@ class _TableCard extends ConsumerWidget {
           ),
       ],
     ).then((value) {
-      if (value == 'delete') {
+      if (value == 'delete' && context.mounted) {
         _showDeleteConfirmation(context);
       }
     });
@@ -330,7 +333,7 @@ class _TableCard extends ConsumerWidget {
         ],
       ),
     ).then((confirmed) {
-      if (confirmed == true) {
+      if ((confirmed ?? false) && context.mounted) {
         onDelete();
       }
     });
@@ -338,15 +341,15 @@ class _TableCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bool isFull = !table.hasSeats;
-    final bool isAdmin = ref.watch(isAdminProvider);
+    final isFull = !table.hasSeats;
+    final isAdmin = ref.watch(isAdminProvider);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: GestureDetector(
         onLongPressStart: isAdmin
             ? (details) =>
-                _showContextMenu(context, details.globalPosition, isAdmin)
+                  _showContextMenu(context, details.globalPosition, isAdmin)
             : null,
         child: InkWell(
           onTap: isFull ? null : onJoin,
@@ -426,15 +429,14 @@ class _TableCard extends ConsumerWidget {
 }
 
 class _InfoChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-
   const _InfoChip({
     required this.icon,
     required this.label,
     required this.color,
   });
+  final IconData icon;
+  final String label;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {

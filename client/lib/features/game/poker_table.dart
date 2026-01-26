@@ -2,25 +2,23 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-
-import '../../core/constants.dart';
-import '../../core/theme.dart';
-import '../../core/utils.dart';
-import '../../models/models.dart';
-import '../../widgets/widgets.dart';
+import 'package:poker_app/core/constants.dart';
+import 'package:poker_app/core/theme.dart';
+import 'package:poker_app/core/utils.dart';
+import 'package:poker_app/models/models.dart';
+import 'package:poker_app/widgets/widgets.dart';
 
 /// The visual poker table with player seats arranged in an oval
 class PokerTable extends StatelessWidget {
-  final GameState gameState;
-  final Function(PlayerAction action, {int? amount}) onAction;
-  final Function(int seatIndex)? onSeatSelected;
-
   const PokerTable({
-    super.key,
     required this.gameState,
     required this.onAction,
+    super.key,
     this.onSeatSelected,
   });
+  final GameState gameState;
+  final void Function(PlayerAction action, {int? amount}) onAction;
+  final void Function(int seatIndex)? onSeatSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -97,7 +95,7 @@ class PokerTable extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Pot display (only during active game)
-              if (gameState.pot > 0 && gameState.isInProgress) 
+              if (gameState.pot > 0 && gameState.isInProgress)
                 PotDisplay(pot: gameState.pot),
               if (gameState.isInProgress) const SizedBox(height: 16),
               // Community cards (only during active game)
@@ -116,7 +114,7 @@ class PokerTable extends StatelessWidget {
     BuildContext context,
     BoxConstraints constraints,
   ) {
-    final List<Widget> seats = [];
+    final seats = <Widget>[];
     final centerX = constraints.maxWidth / 2;
     final centerY = constraints.maxHeight / 2;
 
@@ -133,10 +131,11 @@ class PokerTable extends StatelessWidget {
       seatMap[player.seat] = player;
     }
 
-    for (int i = 0; i < maxSeats; i++) {
+    for (var i = 0; i < maxSeats; i++) {
       // Calculate visual position around the oval
       // Start from bottom center and go counter-clockwise
-      // Use consistent positions regardless of whether player is seated or spectating
+      // Use consistent positions regardless of whether player is seated
+      // or spectating
       // This prevents seats from jumping when sitting down or standing up
       final angle = (math.pi / 2) + (2 * math.pi * i / maxSeats);
       final x = centerX + radiusX * math.cos(angle);
@@ -145,9 +144,9 @@ class PokerTable extends StatelessWidget {
       final player = seatMap[i];
 
       // Clamp position to keep widget within bounds
-      final widgetWidth = 120.0;
-      final widgetHeight =
-          115.0; // Cards (84 for current player, 49 for others) + spacing (4) + info (~50)
+      const widgetWidth = 120.0;
+      // Cards (84 for current player, 49 for others) + spacing (4) + info (~50)
+      const widgetHeight = 115.0;
       final clampedX = (x - widgetWidth / 2).clamp(
         0.0,
         constraints.maxWidth - widgetWidth,
@@ -200,12 +199,14 @@ class PokerTable extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    // Calculate dealer button position with perpendicular offset to avoid overlap with bet chips
+    // Calculate dealer button position with perpendicular offset to avoid
+    // overlap with bet chips
     final angle = (math.pi / 2) + (2 * math.pi * dealerSeat / maxSeats);
     final baseX = centerX + dealerRadiusX * math.cos(angle);
     final baseY = centerY + dealerRadiusY * math.sin(angle);
 
-    // Offset perpendicular to the radial direction (to the right when looking from center)
+    // Offset perpendicular to the radial direction (to the right when looking
+    // from center)
     final perpAngle = angle + math.pi / 2;
     const offsetDistance = 35.0;
     final buttonX = baseX + offsetDistance * math.cos(perpAngle);
@@ -222,7 +223,7 @@ class PokerTable extends StatelessWidget {
 
   /// Build bet chips positioned on the table, between players and the center
   List<Widget> _buildBetChips(BoxConstraints constraints) {
-    final List<Widget> betChips = [];
+    final betChips = <Widget>[];
     final centerX = constraints.maxWidth / 2;
     final centerY = constraints.maxHeight / 2;
 
@@ -238,7 +239,7 @@ class PokerTable extends StatelessWidget {
       seatMap[player.seat] = player;
     }
 
-    for (int i = 0; i < maxSeats; i++) {
+    for (var i = 0; i < maxSeats; i++) {
       final player = seatMap[i];
       if (player == null || player.currentBet <= 0) continue;
 
@@ -288,12 +289,13 @@ class PokerTable extends StatelessWidget {
   Widget _buildWaitingMessage() {
     // Count players with chips who can play
     final playersWithChips = gameState.players.where((p) => p.chips > 0).length;
-    final minPlayers = 2;
-    
+    const minPlayers = 2;
+
     String message;
     if (playersWithChips < minPlayers) {
       final needed = minPlayers - playersWithChips;
-      message = 'Waiting for $needed more player${needed > 1 ? 's' : ''} with chips';
+      message =
+          'Waiting for $needed more player${needed > 1 ? 's' : ''} with chips';
     } else {
       message = 'Waiting for next hand';
     }
@@ -357,9 +359,8 @@ class _DealerButton extends StatelessWidget {
 
 /// Bet chip widget that displays on the table
 class _BetChip extends StatelessWidget {
-  final int amount;
-
   const _BetChip({required this.amount});
+  final int amount;
 
   @override
   Widget build(BuildContext context) {
@@ -394,7 +395,7 @@ class _BetChip extends StatelessWidget {
                   PokerTheme.goldAccent.withValues(alpha: 0.7),
                 ],
               ),
-              border: Border.all(color: Colors.white54, width: 1),
+              border: Border.all(color: Colors.white54),
             ),
           ),
           const SizedBox(width: 6),

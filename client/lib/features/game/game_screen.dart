@@ -3,21 +3,24 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:poker_app/core/constants.dart';
+import 'package:poker_app/core/theme.dart';
+import 'package:poker_app/features/game/cashier_dialog.dart';
+import 'package:poker_app/features/game/hand_result_dialog.dart';
+import 'package:poker_app/features/game/poker_table.dart';
+import 'package:poker_app/models/models.dart';
+import 'package:poker_app/providers/providers.dart';
+import 'package:poker_app/services/websocket_service.dart';
+import 'package:poker_app/widgets/widgets.dart';
 
-import '../../core/constants.dart';
-import '../../core/theme.dart';
-import '../../models/models.dart';
-import '../../providers/providers.dart';
-import '../../services/websocket_service.dart';
-import '../../widgets/widgets.dart';
-import 'cashier_dialog.dart';
-import 'hand_result_dialog.dart';
-import 'poker_table.dart';
+// Fire-and-forget futures are intentional in callbacks and event handlers
+// ignore_for_file: discarded_futures
+// Cascades don't work well with Riverpod's ref.listen due to type inference
+// ignore_for_file: cascade_invocations
 
 class GameScreen extends ConsumerStatefulWidget {
+  const GameScreen({required this.tableId, super.key});
   final String tableId;
-
-  const GameScreen({super.key, required this.tableId});
 
   @override
   ConsumerState<GameScreen> createState() => _GameScreenState();
@@ -26,7 +29,13 @@ class GameScreen extends ConsumerStatefulWidget {
 class _GameScreenState extends ConsumerState<GameScreen> {
   GameState? _gameState;
   final List<ChatMessage> _chatMessages = [];
-  StreamSubscription? _handResultSub;
+  StreamSubscription<HandResult>? _handResultSub;
+
+  /// Whether auto-action (check/fold or fold) is enabled
+  bool _autoActionEnabled = false;
+
+  /// Track the last hand number to reset auto-action when a new hand starts
+  int _lastHandNumber = 0;
 
   @override
   void initState() {
@@ -44,15 +53,16 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final controller = ref.read(gameControllerProvider.notifier);
     final state = ref.read(gameControllerProvider);
 
-    print(
-      'GameScreen: _ensureConnection - isAuthenticated: ${state.isAuthenticated}, currentTableId: ${state.currentTableId}',
+    debugPrint(
+      'GameScreen: _ensureConnection - isAuthenticated: '
+      '${state.isAuthenticated}, currentTableId: ${state.currentTableId}',
     );
 
     if (!state.isAuthenticated) {
-      print('GameScreen: Not authenticated, connecting...');
+      debugPrint('GameScreen: Not authenticated, connecting...');
       await controller.connectAndAuth();
       if (!mounted) return;
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future<void>.delayed(const Duration(milliseconds: 500));
     }
 
     if (!mounted) return;
@@ -60,25 +70,26 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     // Join the table as a spectator (no seat) to receive game state updates
     // The user will select a seat to actually join as a player
     final currentState = ref.read(gameControllerProvider);
-    print(
-      'GameScreen: Checking join - currentTableId: ${currentState.currentTableId}, widget.tableId: ${widget.tableId}',
+    debugPrint(
+      'GameScreen: Checking join - currentTableId: '
+      '${currentState.currentTableId}, widget.tableId: ${widget.tableId}',
     );
 
     if (currentState.currentTableId != widget.tableId) {
-      print('GameScreen: Joining table ${widget.tableId} as spectator');
+      debugPrint('GameScreen: Joining table ${widget.tableId} as spectator');
       controller.joinTable(widget.tableId);
     } else {
-      print('GameScreen: Already at table ${widget.tableId}');
+      debugPrint('GameScreen: Already at table ${widget.tableId}');
       // We're already at this table, but _gameState is null (fresh widget).
       // Check if we have a cached game state from the provider.
       final existingGameState = ref.read(gameStateProvider).valueOrNull;
       if (existingGameState != null &&
           existingGameState.tableId == widget.tableId) {
-        print('GameScreen: Using cached game state');
+        debugPrint('GameScreen: Using cached game state');
         setState(() => _gameState = existingGameState);
       } else {
         // No cached state available, re-join to request current state
-        print('GameScreen: Re-joining to request current state');
+        debugPrint('GameScreen: Re-joining to request current state');
         controller.joinTable(widget.tableId);
       }
     }
@@ -86,8 +97,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   void _selectSeat(int seatIndex) {
     // Join the table at the selected seat
-    final controller = ref.read(gameControllerProvider.notifier);
-    controller.joinTable(widget.tableId, seat: seatIndex);
+    ref.read(gameControllerProvider.notifier).joinTable(
+      widget.tableId,
+      seat: seatIndex,
+    );
   }
 
   void _leaveTable() {
@@ -103,7 +116,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Stand Up?', style: TextStyle(color: Colors.white)),
         content: const Text(
-          'Are you sure you want to leave your seat? You will continue watching as a spectator.',
+          'Are you sure you want to leave your seat? '
+        'You will continue watching as a spectator.',
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -126,21 +140,66 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       ),
     );
 
-    if (shouldStandUp == true && mounted) {
+    if ((shouldStandUp ?? false) && mounted) {
       ref.read(gameControllerProvider.notifier).standUp();
     }
   }
 
   void _sendAction(PlayerAction action, {int? amount}) {
+    // Reset auto-action when a manual action is taken
+    if (_autoActionEnabled) {
+      setState(() => _autoActionEnabled = false);
+    }
     ref
         .read(gameControllerProvider.notifier)
         .sendAction(action, amount: amount);
   }
 
+  /// Execute auto-action if enabled (check if possible, otherwise fold)
+  void _executeAutoAction() {
+    if (_gameState == null || !_autoActionEnabled) return;
+
+    final validActions = _gameState!.validActions;
+
+    // Try to check if possible, otherwise fold
+    if (validActions.contains(PlayerAction.check)) {
+      debugPrint('Auto-action: checking');
+      ref.read(gameControllerProvider.notifier).sendAction(PlayerAction.check);
+    } else if (validActions.contains(PlayerAction.fold)) {
+      debugPrint('Auto-action: folding');
+      ref.read(gameControllerProvider.notifier).sendAction(PlayerAction.fold);
+    }
+
+    // Reset auto-action after execution
+    setState(() => _autoActionEnabled = false);
+  }
+
+  /// Get the label for the auto-action checkbox based on current game state
+  String _getAutoActionLabel() {
+    if (_gameState == null) return 'Check / Fold';
+
+    // If there's a raise (call amount > 0), only fold is possible
+    if (_gameState!.callAmount > 0) {
+      return 'Fold';
+    }
+
+    return 'Check / Fold';
+  }
+
+  /// Whether to show the auto-action checkbox
+  bool _shouldShowAutoAction() {
+    if (_gameState == null) return false;
+
+    final me = _gameState!.me;
+    if (me == null) return false;
+
+    // Only show if player is in the hand (has cards and not folded)
+    return me.hasCards && !me.isFolded && !me.isAllIn;
+  }
+
   void _showHandResult(HandResult result) {
-    showDialog(
+    showDialog<void>(
       context: context,
-      barrierDismissible: true,
       builder: (context) => HandResultDialog(result: result),
     );
   }
@@ -148,46 +207,72 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   @override
   Widget build(BuildContext context) {
     // Listen for game state updates
-    ref.listen(gameStateProvider, (previous, next) {
-      print(
-        'GameScreen: gameStateProvider changed - hasData: ${next.hasValue}, hasError: ${next.hasError}',
+    ref.listen<AsyncValue<GameState>>(gameStateProvider, (previous, next) {
+      debugPrint(
+        'GameScreen: gameStateProvider changed - hasData: ${next.hasValue}, '
+        'hasError: ${next.hasError}',
       );
       next.whenData((state) {
-        print(
-          'GameScreen: Received game state for table ${state.tableId}, players: ${state.players.length}',
+        debugPrint(
+          'GameScreen: Received game state for table ${state.tableId}, '
+          'players: ${state.players.length}',
         );
+
+        final previousState = _gameState;
         setState(() => _gameState = state);
+
+        // Reset auto-action when a new hand starts
+        if (state.handNumber != _lastHandNumber) {
+          _lastHandNumber = state.handNumber;
+          if (_autoActionEnabled) {
+            setState(() => _autoActionEnabled = false);
+          }
+        }
+
+        // Execute auto-action if it's now our turn and auto-action is enabled
+        final wasMyTurn = previousState?.isMyTurn ?? false;
+        final isMyTurn = state.isMyTurn;
+
+        if (!wasMyTurn && isMyTurn && _autoActionEnabled) {
+          // Delay slightly to ensure state is fully updated
+          Future.microtask(() {
+            if (mounted) _executeAutoAction();
+          });
+        }
       });
       next.whenOrNull(
-        error: (e, st) {
-          print('GameScreen: gameStateProvider error: $e');
-        },
+        error: (e, st) => debugPrint('GameScreen: gameStateProvider error: $e'),
       );
     });
 
     // Listen for hand results
-    ref.listen(handResultProvider, (previous, next) {
-      next.whenData((result) {
-        _showHandResult(result);
-      });
-    });
+    ref.listen<AsyncValue<HandResult>>(
+      handResultProvider,
+      (previous, next) => next.whenData(_showHandResult),
+    );
 
     // Listen for chat messages
-    ref.listen(chatMessagesProvider, (previous, next) {
-      next.whenData((message) {
-        setState(() => _chatMessages.add(message));
-      });
-    });
+    ref.listen<AsyncValue<ChatMessage>>(
+      chatMessagesProvider,
+      (previous, next) {
+        next.whenData((ChatMessage message) {
+          setState(() => _chatMessages.add(message));
+        });
+      },
+    );
 
     // Listen for errors
-    ref.listen(wsErrorProvider, (previous, next) {
-      next.whenData((error) {
-        print('GameScreen: WebSocket error: $error');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error), backgroundColor: Colors.red),
-        );
-      });
-    });
+    ref.listen<AsyncValue<String>>(
+      wsErrorProvider,
+      (previous, next) {
+        next.whenData((String error) {
+          debugPrint('GameScreen: WebSocket error: $error');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(error), backgroundColor: Colors.red),
+          );
+        });
+      },
+    );
 
     final controllerState = ref.watch(gameControllerProvider);
 
@@ -195,7 +280,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: RadialGradient(
-            center: Alignment.center,
             radius: 1.2,
             colors: [
               PokerTheme.tableFelt,
@@ -238,6 +322,12 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               else if (_gameState != null && _gameState!.isInProgress)
                 WaitingIndicator(
                   currentPlayerName: _gameState!.currentPlayer?.username,
+                  showAutoAction: _shouldShowAutoAction(),
+                  autoActionEnabled: _autoActionEnabled,
+                  autoActionLabel: _getAutoActionLabel(),
+                  onAutoActionChanged: (enabled) {
+                    setState(() => _autoActionEnabled = enabled);
+                  },
                 ),
             ],
           ),
@@ -350,7 +440,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
 
   Widget _buildMenu() {
-    final isAdmin = ref.watch(isAdminProvider);
+    // TODO(pontus): use isAdmin to conditionally show admin menu items
+    // final isAdmin = ref.watch(isAdminProvider);
 
     return PopupMenuButton<String>(
       icon: const Icon(Icons.more_vert, color: Colors.white),
@@ -363,17 +454,18 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         }
       },
       itemBuilder: (context) => [
-        const PopupMenuItem(
-          value: 'start',
-          child: Row(
-            children: [
-              Icon(Icons.play_arrow, size: 20, color: Colors.white70),
-              SizedBox(width: 8),
-              Text('Start Game', style: TextStyle(color: Colors.white)),
-            ],
-          ),
-        ),
-        // TODO: add cashier menu item only for admin
+        // TODO(pontus): I don't think we need the start menu item
+        // const PopupMenuItem(
+        //   value: 'start',
+        //   child: Row(
+        //     children: [
+        //       Icon(Icons.play_arrow, size: 20, color: Colors.white70),
+        //       SizedBox(width: 8),
+        //       Text('Start Game', style: TextStyle(color: Colors.white)),
+        //     ],
+        //   ),
+        // ),
+        // TODO(pontus): add cashier menu item only for admin
         // if (isAdmin)
         const PopupMenuItem(
           value: 'cashier',
@@ -396,14 +488,14 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   void _showCashierDialog() {
     if (_gameState == null) return;
 
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => CashierDialog(gameState: _gameState!),
     );
   }
 
   Widget _buildLoadingState(GameControllerState state) {
-    String message = 'Connecting...';
+    var message = 'Connecting...';
     if (state.isConnected && !state.isAuthenticated) {
       message = 'Authenticating...';
     } else if (state.isAuthenticated) {
@@ -431,10 +523,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: PokerTheme.goldAccent.withValues(alpha: 0.5)),
       ),
-      child: Row(
+      child: const Row(
         children: [
           Icon(Icons.visibility, color: PokerTheme.goldAccent, size: 20),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Text(
               'Select an open seat to join the table',
@@ -450,7 +542,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
 
   void _showChatSheet(BuildContext context) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor: PokerTheme.surfaceDark,
       shape: const RoundedRectangleBorder(
@@ -473,10 +565,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 }
 
 class _ChatSheet extends StatefulWidget {
-  final List<ChatMessage> messages;
-  final Function(String) onSend;
-
   const _ChatSheet({required this.messages, required this.onSend});
+  final List<ChatMessage> messages;
+  final void Function(String) onSend;
 
   @override
   State<_ChatSheet> createState() => _ChatSheetState();

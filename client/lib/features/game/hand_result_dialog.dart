@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../core/theme.dart';
-import '../../core/utils.dart';
-import '../../models/game_state.dart';
+import 'package:poker_app/core/theme.dart';
+import 'package:poker_app/core/utils.dart';
+import 'package:poker_app/models/game_state.dart';
 
 /// Dialog showing hand results with winners
 class HandResultDialog extends StatelessWidget {
+  const HandResultDialog({required this.result, super.key});
   final HandResult result;
-
-  const HandResultDialog({super.key, required this.result});
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +17,7 @@ class HandResultDialog extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 400),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
@@ -44,19 +43,20 @@ class HandResultDialog extends StatelessWidget {
           children: [
             // Trophy icon
             Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: PokerTheme.goldAccent.withValues(alpha: 0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.emoji_events,
-                color: PokerTheme.goldAccent,
-                size: 48,
-              ),
-            ).animate()
-              .scale(duration: 400.ms, curve: Curves.elasticOut)
-              .fadeIn(),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: PokerTheme.goldAccent.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.emoji_events,
+                    color: PokerTheme.goldAccent,
+                    size: 48,
+                  ),
+                )
+                .animate()
+                .scale(duration: 400.ms, curve: Curves.elasticOut)
+                .fadeIn(),
             const SizedBox(height: 16),
             // Title
             Text(
@@ -125,69 +125,75 @@ class HandResultDialog extends StatelessWidget {
 
   Widget _buildWinnerRow(Winner winner, int index) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Avatar
-          CircleAvatar(
-            backgroundColor: PokerTheme.tableFelt,
-            child: Text(
-              winner.username[0].toUpperCase(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Name and hand
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  winner.username,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Avatar
+              CircleAvatar(
+                backgroundColor: PokerTheme.tableFelt,
+                child: Text(
+                  winner.username[0].toUpperCase(),
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                if (winner.handName != null)
-                  Text(
-                    winner.handName!,
-                    style: const TextStyle(
-                      color: PokerTheme.goldAccent,
-                      fontSize: 14,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          // Amount won
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: PokerTheme.goldAccent.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '+${formatChips(winner.amount)}',
-              style: const TextStyle(
-                color: PokerTheme.goldAccent,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
               ),
-            ),
+              const SizedBox(width: 12),
+              // Name and hand
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      winner.username,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (winner.handName != null)
+                      Text(
+                        winner.handName!,
+                        style: const TextStyle(
+                          color: PokerTheme.goldAccent,
+                          fontSize: 14,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              // Amount won
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: PokerTheme.goldAccent.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '+${formatChips(winner.amount)}',
+                  style: const TextStyle(
+                    color: PokerTheme.goldAccent,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    ).animate().slideX(
-      begin: index.isEven ? -0.2 : 0.2,
-      end: 0,
-      delay: (300 + index * 100).ms,
-      duration: 300.ms,
-    ).fadeIn(delay: (300 + index * 100).ms);
+        )
+        .animate()
+        .slideX(
+          begin: index.isEven ? -0.2 : 0.2,
+          end: 0,
+          delay: (300 + index * 100).ms,
+          duration: 300.ms,
+        )
+        .fadeIn(delay: (300 + index * 100).ms);
   }
 }

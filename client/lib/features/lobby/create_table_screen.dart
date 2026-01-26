@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/theme.dart';
-import '../../providers/providers.dart';
+import 'package:poker_app/core/theme.dart';
+import 'package:poker_app/providers/providers.dart';
 
 class CreateTableScreen extends ConsumerStatefulWidget {
   const CreateTableScreen({super.key});
@@ -273,9 +273,8 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
 }
 
 class _SectionLabel extends StatelessWidget {
-  final String label;
-
   const _SectionLabel({required this.label});
+  final String label;
 
   @override
   Widget build(BuildContext context) {
@@ -291,15 +290,14 @@ class _SectionLabel extends StatelessWidget {
 }
 
 class _PlayerCountChip extends StatelessWidget {
-  final int count;
-  final bool isSelected;
-  final VoidCallback onTap;
-
   const _PlayerCountChip({
     required this.count,
     required this.isSelected,
     required this.onTap,
   });
+  final int count;
+  final bool isSelected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {

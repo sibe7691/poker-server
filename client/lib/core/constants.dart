@@ -16,13 +16,14 @@ enum Suit {
   hearts('h', '♥', 0xFFE53935),
   diamonds('d', '♦', 0xFFE53935),
   clubs('c', '♣', 0xFF212121),
-  spades('s', '♠', 0xFF212121);
+  spades('s', '♠', 0xFF212121)
+  ;
+
+  const Suit(this.code, this.symbol, this.color);
 
   final String code;
   final String symbol;
   final int color;
-
-  const Suit(this.code, this.symbol, this.color);
 
   static Suit fromCode(String code) {
     return Suit.values.firstWhere(
@@ -46,12 +47,13 @@ enum Rank {
   jack('J', 11),
   queen('Q', 12),
   king('K', 13),
-  ace('A', 14);
+  ace('A', 14)
+  ;
+
+  const Rank(this.code, this.value);
 
   final String code;
   final int value;
-
-  const Rank(this.code, this.value);
 
   static Rank fromCode(String code) {
     // Handle "10" from server as equivalent to "T"
@@ -73,11 +75,12 @@ enum PlayerAction {
   call,
   bet,
   raise,
-  allIn('all_in');
-
-  final String value;
+  allIn('all_in')
+  ;
 
   const PlayerAction([String? v]) : value = v ?? '';
+
+  final String value;
 
   String get serverValue => value.isNotEmpty ? value : name;
 

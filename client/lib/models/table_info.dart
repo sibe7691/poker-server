@@ -2,22 +2,14 @@ import 'package:equatable/equatable.dart';
 
 /// Table information for lobby display
 class TableInfo extends Equatable {
-  final String tableId;
-  final String name;
-  final int playerCount;
-  final int maxPlayers;
-  final String state;
-  final int smallBlind;
-  final int bigBlind;
-
   const TableInfo({
     required this.tableId,
     required this.name,
     required this.playerCount,
     required this.maxPlayers,
-    this.state = 'waiting',
     required this.smallBlind,
     required this.bigBlind,
+    this.state = 'waiting',
   });
 
   factory TableInfo.fromJson(Map<String, dynamic> json) {
@@ -31,6 +23,13 @@ class TableInfo extends Equatable {
       bigBlind: json['big_blind'] as int? ?? 2,
     );
   }
+  final String tableId;
+  final String name;
+  final int playerCount;
+  final int maxPlayers;
+  final String state;
+  final int smallBlind;
+  final int bigBlind;
 
   /// Display string for blinds
   String get blindsDisplay => '$smallBlind/$bigBlind';

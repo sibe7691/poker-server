@@ -1,25 +1,10 @@
 import 'package:equatable/equatable.dart';
-import '../core/constants.dart';
-import 'card.dart';
-import 'player.dart';
+import 'package:poker_app/core/constants.dart';
+import 'package:poker_app/models/card.dart';
+import 'package:poker_app/models/player.dart';
 
 /// Full game state from server
 class GameState extends Equatable {
-  final String tableId;
-  final GamePhase phase;
-  final int handNumber;
-  final int dealerSeat;
-  final int smallBlind;
-  final int bigBlind;
-  final int pot;
-  final int maxPlayers;
-  final List<PlayingCard> communityCards;
-  final List<Player> players;
-  final String? currentPlayerId;
-  final List<PlayerAction> validActions;
-  final int callAmount;
-  final int minRaise;
-
   const GameState({
     required this.tableId,
     required this.phase,
@@ -38,17 +23,23 @@ class GameState extends Equatable {
   });
 
   factory GameState.fromJson(Map<String, dynamic> json) {
-    final communityCards = (json['community_cards'] as List<dynamic>?)
-        ?.map((c) => PlayingCard.fromString(c as String))
-        .toList() ?? [];
-    
-    final players = (json['players'] as List<dynamic>?)
-        ?.map((p) => Player.fromJson(p as Map<String, dynamic>))
-        .toList() ?? [];
-    
-    final validActions = (json['valid_actions'] as List<dynamic>?)
-        ?.map((a) => PlayerAction.fromString(a as String))
-        .toList() ?? [];
+    final communityCards =
+        (json['community_cards'] as List<dynamic>?)
+            ?.map((c) => PlayingCard.fromString(c as String))
+            .toList() ??
+        [];
+
+    final players =
+        (json['players'] as List<dynamic>?)
+            ?.map((p) => Player.fromJson(p as Map<String, dynamic>))
+            .toList() ??
+        [];
+
+    final validActions =
+        (json['valid_actions'] as List<dynamic>?)
+            ?.map((a) => PlayerAction.fromString(a as String))
+            .toList() ??
+        [];
 
     return GameState(
       tableId: json['table_id'] as String,
@@ -67,6 +58,20 @@ class GameState extends Equatable {
       minRaise: json['min_raise'] as int? ?? 0,
     );
   }
+  final String tableId;
+  final GamePhase phase;
+  final int handNumber;
+  final int dealerSeat;
+  final int smallBlind;
+  final int bigBlind;
+  final int pot;
+  final int maxPlayers;
+  final List<PlayingCard> communityCards;
+  final List<Player> players;
+  final String? currentPlayerId;
+  final List<PlayerAction> validActions;
+  final int callAmount;
+  final int minRaise;
 
   static GamePhase _parsePhase(String? state) {
     return switch (state) {
@@ -85,7 +90,7 @@ class GameState extends Equatable {
     if (currentPlayerId == null) return null;
     try {
       return players.firstWhere((p) => p.userId == currentPlayerId);
-    } catch (_) {
+    } on Exception catch (_) {
       return null;
     }
   }
@@ -94,7 +99,7 @@ class GameState extends Equatable {
   Player? get me {
     try {
       return players.firstWhere((p) => p.isYou);
-    } catch (_) {
+    } on Exception catch (_) {
       return null;
     }
   }
@@ -144,18 +149,25 @@ class GameState extends Equatable {
 
   @override
   List<Object?> get props => [
-    tableId, phase, handNumber, dealerSeat, smallBlind, bigBlind,
-    pot, maxPlayers, communityCards, players, currentPlayerId, validActions,
-    callAmount, minRaise
+    tableId,
+    phase,
+    handNumber,
+    dealerSeat,
+    smallBlind,
+    bigBlind,
+    pot,
+    maxPlayers,
+    communityCards,
+    players,
+    currentPlayerId,
+    validActions,
+    callAmount,
+    minRaise,
   ];
 }
 
 /// Hand result when a hand finishes
 class HandResult extends Equatable {
-  final List<Winner> winners;
-  final int pot;
-  final Map<String, List<PlayingCard>> playerCards;
-
   const HandResult({
     required this.winners,
     required this.pot,
@@ -163,10 +175,12 @@ class HandResult extends Equatable {
   });
 
   factory HandResult.fromJson(Map<String, dynamic> json) {
-    final winners = (json['winners'] as List<dynamic>?)
-        ?.map((w) => Winner.fromJson(w as Map<String, dynamic>))
-        .toList() ?? [];
-    
+    final winners =
+        (json['winners'] as List<dynamic>?)
+            ?.map((w) => Winner.fromJson(w as Map<String, dynamic>))
+            .toList() ??
+        [];
+
     final playerCards = <String, List<PlayingCard>>{};
     final cardsData = json['player_cards'] as Map<String, dynamic>?;
     if (cardsData != null) {
@@ -184,17 +198,15 @@ class HandResult extends Equatable {
       playerCards: playerCards,
     );
   }
+  final List<Winner> winners;
+  final int pot;
+  final Map<String, List<PlayingCard>> playerCards;
 
   @override
   List<Object?> get props => [winners, pot, playerCards];
 }
 
 class Winner extends Equatable {
-  final String odId;
-  final String username;
-  final int amount;
-  final String? handName;
-
   const Winner({
     required this.odId,
     required this.username,
@@ -210,6 +222,10 @@ class Winner extends Equatable {
       handName: json['hand_name'] as String?,
     );
   }
+  final String odId;
+  final String username;
+  final int amount;
+  final String? handName;
 
   @override
   List<Object?> get props => [odId, username, amount, handName];

@@ -1,20 +1,8 @@
 import 'package:equatable/equatable.dart';
-import 'card.dart';
+import 'package:poker_app/models/card.dart';
 
 /// Represents a player at the table
 class Player extends Equatable {
-  final String userId;
-  final String username;
-  final int seat;
-  final int chips;
-  final int currentBet;
-  final List<PlayingCard> holeCards;
-  final bool hasCards;
-  final bool isFolded;
-  final bool isAllIn;
-  final bool isYou;
-  final bool isConnected;
-
   const Player({
     required this.userId,
     required this.username,
@@ -30,10 +18,12 @@ class Player extends Equatable {
   });
 
   factory Player.fromJson(Map<String, dynamic> json) {
-    final cardsList = (json['hole_cards'] as List<dynamic>?)
-        ?.map((c) => PlayingCard.fromString(c as String))
-        .toList() ?? [];
-    
+    final cardsList =
+        (json['hole_cards'] as List<dynamic>?)
+            ?.map((c) => PlayingCard.fromString(c as String))
+            .toList() ??
+        [];
+
     return Player(
       userId: json['user_id'] as String,
       username: json['username'] as String,
@@ -48,6 +38,17 @@ class Player extends Equatable {
       isConnected: json['is_connected'] as bool? ?? true,
     );
   }
+  final String userId;
+  final String username;
+  final int seat;
+  final int chips;
+  final int currentBet;
+  final List<PlayingCard> holeCards;
+  final bool hasCards;
+  final bool isFolded;
+  final bool isAllIn;
+  final bool isYou;
+  final bool isConnected;
 
   Player copyWith({
     String? userId,
@@ -85,7 +86,16 @@ class Player extends Equatable {
 
   @override
   List<Object?> get props => [
-    userId, username, seat, chips, currentBet, holeCards, 
-    hasCards, isFolded, isAllIn, isYou, isConnected
+    userId,
+    username,
+    seat,
+    chips,
+    currentBet,
+    holeCards,
+    hasCards,
+    isFolded,
+    isAllIn,
+    isYou,
+    isConnected,
   ];
 }

@@ -1,16 +1,18 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:poker_app/core/constants.dart';
+import 'package:poker_app/models/models.dart';
+import 'package:poker_app/providers/auth_provider.dart';
+import 'package:poker_app/services/websocket_service.dart';
 
-import '../core/constants.dart';
-import '../models/models.dart';
-import '../services/websocket_service.dart';
-import 'auth_provider.dart';
+// Fire-and-forget futures are intentional in dispose and cleanup
+// ignore_for_file: discarded_futures
 
 /// WebSocket service provider
 final webSocketServiceProvider = Provider<WebSocketService>((ref) {
   final service = WebSocketService();
-  ref.onDispose(() => service.dispose());
+  ref.onDispose(service.dispose);
   return service;
 });
 
@@ -94,21 +96,20 @@ final standingsProvider = StreamProvider<List<StandingEntry>>((ref) {
 
 /// Game controller for managing game actions
 class GameController extends StateNotifier<GameControllerState> {
-  final WebSocketService _ws;
-  final Ref _ref;
-  StreamSubscription? _statusSub;
-  StreamSubscription? _errorSub;
-  StreamSubscription? _authFailedSub;
-  
-  /// Track pending table join for reconnection after token refresh
-  String? _pendingTableJoin;
-  int? _pendingTableSeat;
-
   GameController(this._ws, this._ref) : super(GameControllerState.initial()) {
     _statusSub = _ws.statusStream.listen(_onStatusChange);
     _errorSub = _ws.errorStream.listen(_onError);
     _authFailedSub = _ws.authFailedStream.listen(_onAuthFailed);
   }
+  final WebSocketService _ws;
+  final Ref _ref;
+  StreamSubscription<ConnectionStatus>? _statusSub;
+  StreamSubscription<String>? _errorSub;
+  StreamSubscription<AuthFailedEvent>? _authFailedSub;
+
+  /// Track pending table join for reconnection after token refresh
+  String? _pendingTableJoin;
+  int? _pendingTableSeat;
 
   void _onStatusChange(ConnectionStatus status) {
     state = state.copyWith(
@@ -118,7 +119,7 @@ class GameController extends StateNotifier<GameControllerState> {
           status == ConnectionStatus.authenticated,
       isAuthenticated: status == ConnectionStatus.authenticated,
     );
-    
+
     // If we just authenticated and have a pending table join, rejoin it
     if (status == ConnectionStatus.authenticated && _pendingTableJoin != null) {
       final tableId = _pendingTableJoin!;
@@ -141,9 +142,12 @@ class GameController extends StateNotifier<GameControllerState> {
       return;
     }
 
-    WebSocketLogger.info('AUTH', 'Handling token expiration, attempting refresh...');
+    WebSocketLogger.info(
+      'AUTH',
+      'Handling token expiration, attempting refresh...',
+    );
     _ws.setRefreshingToken(true);
-    
+
     try {
       // Store current table for reconnection
       if (state.currentTableId != null) {
@@ -156,7 +160,10 @@ class GameController extends StateNotifier<GameControllerState> {
       final newToken = await authNotifier.refreshAccessToken();
 
       if (newToken != null) {
-        WebSocketLogger.info('AUTH', 'Token refreshed successfully, re-authenticating...');
+        WebSocketLogger.info(
+          'AUTH',
+          'Token refreshed successfully, re-authenticating...',
+        );
         // Re-authenticate with the new token
         _ws.authenticate(newToken);
       } else {
@@ -173,14 +180,14 @@ class GameController extends StateNotifier<GameControllerState> {
 
   /// Connect and authenticate
   Future<bool> connectAndAuth() async {
-    state = state.copyWith(isConnecting: true, error: null);
+    state = state.copyWith(isConnecting: true);
 
     final connected = await _ws.connect();
-    
+
     if (!connected) {
       WebSocketLogger.error('AUTH', 'Cannot authenticate - connection failed');
       state = state.copyWith(
-        isConnecting: false, 
+        isConnecting: false,
         error: 'Failed to connect to server',
       );
       return false;
@@ -191,7 +198,10 @@ class GameController extends StateNotifier<GameControllerState> {
       _ws.authenticate(authState.accessToken!);
       return true;
     } else {
-      WebSocketLogger.warning('AUTH', 'No access token available for authentication');
+      WebSocketLogger.warning(
+        'AUTH',
+        'No access token available for authentication',
+      );
       state = state.copyWith(isConnecting: false);
       return false;
     }
@@ -206,7 +216,7 @@ class GameController extends StateNotifier<GameControllerState> {
   /// Leave current table
   void leaveTable() {
     _ws.leaveTable();
-    state = state.copyWith(currentTableId: null);
+    state = state.copyWith();
   }
 
   /// Stand up from seat (become spectator)
@@ -226,7 +236,7 @@ class GameController extends StateNotifier<GameControllerState> {
 
   /// Fetch tables list
   Future<List<TableInfo>> fetchTables() async {
-    return await _ws.fetchTablesList();
+    return _ws.fetchTablesList();
   }
 
   /// Start game (admin)
@@ -282,7 +292,7 @@ class GameController extends StateNotifier<GameControllerState> {
 
   /// Clear error
   void clearError() {
-    state = state.copyWith(error: null);
+    state = state.copyWith();
   }
 
   @override
@@ -296,12 +306,6 @@ class GameController extends StateNotifier<GameControllerState> {
 
 /// Game controller state
 class GameControllerState {
-  final bool isConnecting;
-  final bool isConnected;
-  final bool isAuthenticated;
-  final String? currentTableId;
-  final String? error;
-
   const GameControllerState({
     this.isConnecting = false,
     this.isConnected = false,
@@ -311,6 +315,11 @@ class GameControllerState {
   });
 
   factory GameControllerState.initial() => const GameControllerState();
+  final bool isConnecting;
+  final bool isConnected;
+  final bool isAuthenticated;
+  final String? currentTableId;
+  final String? error;
 
   GameControllerState copyWith({
     bool? isConnecting,

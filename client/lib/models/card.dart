@@ -1,14 +1,12 @@
 import 'package:equatable/equatable.dart';
-import '../core/constants.dart';
+import 'package:poker_app/core/constants.dart';
 
 /// Represents a playing card
 class PlayingCard extends Equatable {
-  final Rank rank;
-  final Suit suit;
-
   const PlayingCard({required this.rank, required this.suit});
 
-  /// Parse card from server format (e.g., "Ah" = Ace of Hearts, "10s" = 10 of Spades)
+  /// Parse card from server format
+  /// (e.g., "Ah" = Ace of Hearts, "10s" = 10 of Spades)
   factory PlayingCard.fromString(String cardStr) {
     if (cardStr.length < 2 || cardStr.length > 3) {
       throw ArgumentError('Invalid card string: $cardStr');
@@ -21,6 +19,8 @@ class PlayingCard extends Equatable {
       suit: Suit.fromCode(suitCode),
     );
   }
+  final Rank rank;
+  final Suit suit;
 
   /// Display string (e.g., "A♥")
   String get display => '${rank.code}${suit.symbol}';

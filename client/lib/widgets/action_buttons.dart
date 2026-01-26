@@ -1,27 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../core/constants.dart';
-import '../core/theme.dart';
-import '../core/utils.dart';
+import 'package:poker_app/core/constants.dart';
+import 'package:poker_app/core/theme.dart';
+import 'package:poker_app/core/utils.dart';
+
+// Fire-and-forget futures are intentional for haptic feedback
+// ignore_for_file: discarded_futures
 
 /// Action buttons panel for player actions
 class ActionButtonsPanel extends StatefulWidget {
-  final List<PlayerAction> validActions;
-  final int callAmount;
-  final int minRaise;
-  final int maxBet;
-  final int bigBlind;
-  final Function(PlayerAction action, {int? amount}) onAction;
-
   const ActionButtonsPanel({
-    super.key,
     required this.validActions,
     required this.callAmount,
     required this.minRaise,
     required this.maxBet,
     required this.bigBlind,
     required this.onAction,
+    super.key,
   });
+  final List<PlayerAction> validActions;
+  final int callAmount;
+  final int minRaise;
+  final int maxBet;
+  final int bigBlind;
+  final void Function(PlayerAction action, {int? amount}) onAction;
 
   @override
   State<ActionButtonsPanel> createState() => _ActionButtonsPanelState();
@@ -47,11 +49,11 @@ class _ActionButtonsPanelState extends State<ActionButtonsPanel> {
       decoration: BoxDecoration(
         color: PokerTheme.surfaceDark.withValues(alpha: 0.95),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
             color: Colors.black45,
             blurRadius: 10,
-            offset: const Offset(0, -4),
+            offset: Offset(0, -4),
           ),
         ],
       ),
@@ -73,7 +75,7 @@ class _ActionButtonsPanelState extends State<ActionButtonsPanel> {
   Widget _buildRaiseSlider() {
     final min = widget.minRaise.toDouble();
     final max = widget.maxBet.toDouble();
-    
+
     return Column(
       children: [
         Row(
@@ -111,7 +113,10 @@ class _ActionButtonsPanelState extends State<ActionButtonsPanel> {
                   value: _raiseSliderValue.clamp(min, max),
                   min: min,
                   max: max,
-                  divisions: ((max - min) / widget.bigBlind).round().clamp(1, 100),
+                  divisions: ((max - min) / widget.bigBlind).round().clamp(
+                    1,
+                    100,
+                  ),
                   onChanged: (value) {
                     setState(() {
                       _raiseSliderValue = value;
@@ -131,8 +136,14 @@ class _ActionButtonsPanelState extends State<ActionButtonsPanel> {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             _quickBetButton('Min', widget.minRaise.toDouble()),
-            _quickBetButton('1/2 Pot', (widget.callAmount * 1.5).clamp(min, max).toDouble()),
-            _quickBetButton('Pot', (widget.callAmount * 2).clamp(min, max).toDouble()),
+            _quickBetButton(
+              '1/2 Pot',
+              (widget.callAmount * 1.5).clamp(min, max),
+            ),
+            _quickBetButton(
+              'Pot',
+              (widget.callAmount * 2).clamp(min, max).toDouble(),
+            ),
             _quickBetButton('All In', max),
           ],
         ),
@@ -268,17 +279,16 @@ class _ActionButtonsPanelState extends State<ActionButtonsPanel> {
 }
 
 class _ActionButton extends StatelessWidget {
+  const _ActionButton({
+    required this.label,
+    required this.color,
+    required this.onPressed,
+    this.textColor = Colors.white,
+  });
   final String label;
   final Color color;
   final Color textColor;
   final VoidCallback onPressed;
-
-  const _ActionButton({
-    required this.label,
-    required this.color,
-    this.textColor = Colors.white,
-    required this.onPressed,
-  });
 
   @override
   Widget build(BuildContext context) {
@@ -307,9 +317,28 @@ class _ActionButton extends StatelessWidget {
 
 /// Waiting indicator when it's not your turn
 class WaitingIndicator extends StatelessWidget {
+  const WaitingIndicator({
+    super.key,
+    this.currentPlayerName,
+    this.showAutoAction = false,
+    this.autoActionEnabled = false,
+    this.autoActionLabel = 'Check / Fold',
+    this.onAutoActionChanged,
+  });
   final String? currentPlayerName;
 
-  const WaitingIndicator({super.key, this.currentPlayerName});
+  /// Whether to show the auto-action checkbox
+  /// (only for seated players in the hand)
+  final bool showAutoAction;
+
+  /// Whether auto-action is currently enabled
+  final bool autoActionEnabled;
+
+  /// The label for the auto-action checkbox ("Check / Fold" or "Fold")
+  final String autoActionLabel;
+
+  /// Callback when auto-action checkbox is toggled
+  final ValueChanged<bool>? onAutoActionChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -320,25 +349,104 @@ class WaitingIndicator extends StatelessWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: SafeArea(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(
+            // Waiting message
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation(PokerTheme.goldAccent),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  currentPlayerName != null
+                      ? 'Waiting for $currentPlayerName...'
+                      : 'Waiting for other players...',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+            // Auto-action checkbox
+            if (showAutoAction) ...[
+              const SizedBox(height: 12),
+              _AutoActionCheckbox(
+                label: autoActionLabel,
+                value: autoActionEnabled,
+                onChanged: onAutoActionChanged,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Checkbox for auto-action (Check/Fold or Fold)
+class _AutoActionCheckbox extends StatelessWidget {
+  const _AutoActionCheckbox({
+    required this.label,
+    required this.value,
+    this.onChanged,
+  });
+  final String label;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onChanged != null ? () => onChanged!(!value) : null,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: value
+              ? PokerTheme.chipBlue.withValues(alpha: 0.3)
+              : PokerTheme.surfaceLight.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: value ? PokerTheme.chipBlue : Colors.white24,
+            width: value ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
               width: 20,
               height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation(PokerTheme.goldAccent),
+              child: Checkbox(
+                value: value,
+                onChanged: onChanged != null
+                    ? (v) => onChanged!(v ?? false)
+                    : null,
+                activeColor: PokerTheme.chipBlue,
+                checkColor: Colors.white,
+                side: const BorderSide(color: Colors.white54),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             Text(
-              currentPlayerName != null
-                  ? "Waiting for $currentPlayerName..."
-                  : "Waiting for other players...",
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 16,
+              label,
+              style: TextStyle(
+                color: value ? Colors.white : Colors.white70,
+                fontSize: 14,
+                fontWeight: value ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ],
