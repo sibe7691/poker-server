@@ -109,17 +109,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
         const SizedBox(height: 24),
         const Text(
-          'POKER',
+          'SEVEN DEUCE',
           style: TextStyle(
             fontSize: 36,
             fontWeight: FontWeight.bold,
             color: Colors.white,
-            letterSpacing: 8,
+            letterSpacing: 6,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          'Texas Hold\'em',
+          'Texas Hold\'Em Poker',
           style: TextStyle(
             fontSize: 16,
             color: Colors.white.withValues(alpha: 0.7),

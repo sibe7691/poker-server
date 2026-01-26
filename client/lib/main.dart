@@ -176,7 +176,7 @@ class _PokerAppState extends ConsumerState<PokerApp> {
     }
 
     return MaterialApp.router(
-      title: 'Poker',
+      title: 'Seven Deuce - Texas Hold\'Em Poker',
       theme: PokerTheme.darkTheme,
       routerConfig: _router,
       debugShowCheckedModeBanner: false,

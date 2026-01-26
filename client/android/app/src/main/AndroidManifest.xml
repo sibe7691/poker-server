@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="poker_app"
+        android:label="Seven Deuce"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

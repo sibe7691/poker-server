@@ -129,7 +129,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Poker Lobby'),
+        title: const Text('Seven Deuce Lobby'),
         actions: [
           if (username != null)
             Padding(
