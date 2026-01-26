@@ -187,11 +187,13 @@ class WebSocketService {
   }
 
   /// Connect to WebSocket server
-  Future<void> connect() async {
+  Future<bool> connect() async {
     if (_status == ConnectionStatus.connecting ||
-        _status == ConnectionStatus.connected) {
+        _status == ConnectionStatus.connected ||
+        _status == ConnectionStatus.authenticated) {
       WebSocketLogger.debug('CONN', 'Connect called but already ${_status.name}');
-      return;
+      return _status == ConnectionStatus.connected || 
+             _status == ConnectionStatus.authenticated;
     }
 
     WebSocketLogger.info('CONN', 'Connecting to ${ApiConstants.wsUrl}');
@@ -199,6 +201,10 @@ class WebSocketService {
 
     try {
       _channel = WebSocketChannel.connect(Uri.parse(ApiConstants.wsUrl));
+      
+      // Wait for the WebSocket connection to actually be established
+      // The .ready future completes when the connection is open
+      await _channel!.ready;
 
       _subscription = _channel!.stream.listen(
         _handleMessage,
@@ -209,10 +215,13 @@ class WebSocketService {
       _setStatus(ConnectionStatus.connected);
       _startPingTimer();
       WebSocketLogger.info('CONN', 'Successfully connected, ping timer started');
+      return true;
     } catch (e) {
       WebSocketLogger.error('CONN', 'Connection failed: $e');
       _setStatus(ConnectionStatus.error);
       _errorController.add('Failed to connect: $e');
+      _channel = null;
+      return false;
     }
   }
 

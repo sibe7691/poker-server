@@ -172,17 +172,28 @@ class GameController extends StateNotifier<GameControllerState> {
   }
 
   /// Connect and authenticate
-  Future<void> connectAndAuth() async {
+  Future<bool> connectAndAuth() async {
     state = state.copyWith(isConnecting: true, error: null);
 
-    await _ws.connect();
-
-    // Wait for connection
-    await Future.delayed(const Duration(milliseconds: 500));
+    final connected = await _ws.connect();
+    
+    if (!connected) {
+      WebSocketLogger.error('AUTH', 'Cannot authenticate - connection failed');
+      state = state.copyWith(
+        isConnecting: false, 
+        error: 'Failed to connect to server',
+      );
+      return false;
+    }
 
     final authState = _ref.read(authProvider);
     if (authState.accessToken != null) {
       _ws.authenticate(authState.accessToken!);
+      return true;
+    } else {
+      WebSocketLogger.warning('AUTH', 'No access token available for authentication');
+      state = state.copyWith(isConnecting: false);
+      return false;
     }
   }
 
