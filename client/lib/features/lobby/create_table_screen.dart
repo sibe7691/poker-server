@@ -21,7 +21,7 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
 
   int _maxPlayers = 6;
 
-  static const List<int> _maxPlayersOptions = [2, 4, 6, 8, 10];
+  static const List<int> _maxPlayersOptions = [2, 3, 4, 5, 6, 7, 8, 9];
 
   @override
   void dispose() {
