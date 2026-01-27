@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-
 import 'package:poker_app/core/theme.dart';
 import 'package:poker_app/models/card.dart';
 
@@ -36,11 +35,11 @@ class PlayingCardWidget extends StatelessWidget {
               : PokerTheme.cardWhite,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isHighlighted 
-                ? PokerTheme.goldAccent 
-                : (isFaceDown || card == null) 
-                    ? Colors.grey.shade600 
-                    : Colors.grey.shade400,
+            color: isHighlighted
+                ? PokerTheme.goldAccent
+                : (isFaceDown || card == null)
+                ? Colors.grey.shade600
+                : Colors.grey.shade400,
             width: isHighlighted ? 2.5 : 1.5,
           ),
           boxShadow: [
@@ -132,13 +131,15 @@ class PlayingCardWidget extends StatelessWidget {
             height: height * 0.25,
             child: Container(
               decoration: BoxDecoration(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(9),
+                ),
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.white.withValues(alpha: 0.25),
-                    Colors.white.withValues(alpha: 0.0),
+                    Colors.white.withValues(alpha: 0),
                   ],
                 ),
               ),
@@ -177,13 +178,15 @@ class PlayingCardWidget extends StatelessWidget {
             height: height * 0.3,
             child: Container(
               decoration: BoxDecoration(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(7),
+                ),
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.white.withValues(alpha: 0.6),
-                    Colors.white.withValues(alpha: 0.0),
+                    Colors.white.withValues(alpha: 0),
                   ],
                 ),
               ),
@@ -195,7 +198,6 @@ class PlayingCardWidget extends StatelessWidget {
             left: width * 0.08,
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
                   card.rank.code,
@@ -231,7 +233,8 @@ class PlayingCardWidget extends StatelessWidget {
               ],
             ),
           ),
-          // Large center suit with glow effect - positioned in bottom-right area
+          // Large center suit with glow effect -
+          // positioned in bottom-right area
           Positioned(
             right: width * 0.08,
             bottom: height * 0.08,

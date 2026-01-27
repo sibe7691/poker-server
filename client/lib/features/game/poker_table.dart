@@ -45,6 +45,7 @@ class PokerTable extends ConsumerStatefulWidget {
   final void Function(PlayerAction action, {int? amount}) onAction;
   final void Function(int seatIndex)? onSeatSelected;
   final HandResult? handResult;
+
   /// Chat messages to display as bubbles above players
   final List<ChatMessage> chatMessages;
 
@@ -209,7 +210,8 @@ class _PokerTableState extends ConsumerState<PokerTable> {
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Pot display (during active game or when showing hand result)
+              // Pot display (during active game or
+              // when showing hand result)
               if (widget.gameState.pot > 0 && widget.gameState.isInProgress)
                 PotDisplay(pot: widget.gameState.pot)
               else if (_playerWinners.isNotEmpty && widget.handResult != null)
@@ -217,11 +219,13 @@ class _PokerTableState extends ConsumerState<PokerTable> {
               if (widget.gameState.isInProgress ||
                   _handResultCommunityCards.isNotEmpty)
                 const SizedBox(height: 16),
-              // Community cards (during active game or when showing hand result)
+              // Community cards (during active game or
+              // when showing hand result)
               if (widget.gameState.isInProgress)
                 CommunityCards(cards: widget.gameState.communityCards)
               else if (_handResultCommunityCards.isNotEmpty)
-                // Show community cards from hand result when winner is displayed
+                // Show community cards from hand result
+                // when winner is displayed
                 CommunityCards(cards: _handResultCommunityCards)
               else
                 _buildWaitingMessage(),

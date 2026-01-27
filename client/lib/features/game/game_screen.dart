@@ -629,7 +629,11 @@ class _ChatSheetState extends State<_ChatSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: [
-                  const Icon(Icons.chat, color: PokerTheme.goldAccent, size: 20),
+                  const Icon(
+                    Icons.chat,
+                    color: PokerTheme.goldAccent,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
                   const Text(
                     'Table Chat',
@@ -655,8 +659,11 @@ class _ChatSheetState extends State<_ChatSheet> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.chat_bubble_outline,
-                              color: Colors.white24, size: 48),
+                          Icon(
+                            Icons.chat_bubble_outline,
+                            color: Colors.white24,
+                            size: 48,
+                          ),
                           SizedBox(height: 12),
                           Text(
                             'No messages yet',
@@ -665,7 +672,10 @@ class _ChatSheetState extends State<_ChatSheet> {
                           SizedBox(height: 4),
                           Text(
                             'Be the first to say something!',
-                            style: TextStyle(color: Colors.white24, fontSize: 12),
+                            style: TextStyle(
+                              color: Colors.white24,
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
@@ -680,16 +690,24 @@ class _ChatSheetState extends State<_ChatSheet> {
                       itemBuilder: (context, index) {
                         final msg = widget.messages[index];
                         final isFirst = index == 0;
-                        final prevMsg = isFirst ? null : widget.messages[index - 1];
-                        final showTimeSeparator = isFirst ||
-                            msg.timestamp.difference(prevMsg!.timestamp).inMinutes > 5;
+                        final prevMsg = isFirst
+                            ? null
+                            : widget.messages[index - 1];
+                        final showTimeSeparator =
+                            isFirst ||
+                            msg.timestamp
+                                    .difference(prevMsg!.timestamp)
+                                    .inMinutes >
+                                5;
 
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             if (showTimeSeparator)
                               Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
                                 child: Center(
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
