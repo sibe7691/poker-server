@@ -450,6 +450,10 @@ class Table:
         winners_by_pot: dict[int, list[str]] = {}
         shown_hands: dict[str, list[str]] = {}
         
+        # Record shown hands for ALL active players at showdown (not just winners)
+        for player in active:
+            shown_hands[player.user_id] = [str(c) for c in player.hole_cards]
+        
         for pot_idx, side_pot in enumerate(self.pot.side_pots):
             eligible_hands = [
                 (uid, hand) for uid, hand in hand_results 
@@ -459,12 +463,6 @@ class Table:
             if eligible_hands:
                 winner_groups = compare_hands(eligible_hands)
                 winners_by_pot[pot_idx] = winner_groups[0]  # First group has best hands
-                
-                # Record shown hands
-                for uid in winner_groups[0]:
-                    player = self.get_player_by_id(uid)
-                    if player:
-                        shown_hands[uid] = [str(c) for c in player.hole_cards]
         
         # Calculate and distribute winnings
         winnings = calculate_winnings(self.pot.side_pots, winners_by_pot)

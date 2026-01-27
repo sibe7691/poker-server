@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import 'package:poker_app/core/constants.dart';
 import 'package:poker_app/core/theme.dart';
 import 'package:poker_app/features/game/cashier_dialog.dart';
-import 'package:poker_app/features/game/hand_result_dialog.dart';
 import 'package:poker_app/features/game/poker_table.dart';
 import 'package:poker_app/models/models.dart';
 import 'package:poker_app/providers/providers.dart';
@@ -30,6 +29,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   GameState? _gameState;
   final List<ChatMessage> _chatMessages = [];
   StreamSubscription<HandResult>? _handResultSub;
+
+  /// Current hand result to display on player seats
+  HandResult? _currentHandResult;
 
   /// Whether auto-action (check/fold or fold) is enabled
   bool _autoActionEnabled = false;
@@ -200,10 +202,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
 
   void _showHandResult(HandResult result) {
-    showDialog<void>(
-      context: context,
-      builder: (context) => HandResultDialog(result: result),
-    );
+    // Display winner on player seats instead of modal dialog
+    setState(() {
+      _currentHandResult = result;
+    });
   }
 
   @override
@@ -223,11 +225,15 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         final previousState = _gameState;
         setState(() => _gameState = state);
 
-        // Reset auto-action when a new hand starts
+        // Reset auto-action and hand result when a new hand starts
         if (state.handNumber != _lastHandNumber) {
           _lastHandNumber = state.handNumber;
           if (_autoActionEnabled) {
             setState(() => _autoActionEnabled = false);
+          }
+          // Clear hand result when new hand starts
+          if (_currentHandResult != null) {
+            setState(() => _currentHandResult = null);
           }
         }
 
@@ -309,6 +315,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                         onSeatSelected: _gameState!.me == null
                             ? _selectSeat
                             : null,
+                        handResult: _currentHandResult,
                       ),
               ),
               // Action buttons (if it's your turn)

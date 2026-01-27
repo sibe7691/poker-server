@@ -17,6 +17,13 @@ class _PlayerActionData {
   final PlayerAction action;
 }
 
+/// Data class to track a player's winner status
+class _PlayerWinnerData {
+  _PlayerWinnerData({required this.amount, this.handName});
+  final int amount;
+  final String? handName;
+}
+
 /// The visual poker table with player seats arranged in an oval
 class PokerTable extends ConsumerStatefulWidget {
   const PokerTable({
@@ -24,10 +31,12 @@ class PokerTable extends ConsumerStatefulWidget {
     required this.onAction,
     super.key,
     this.onSeatSelected,
+    this.handResult,
   });
   final GameState gameState;
   final void Function(PlayerAction action, {int? amount}) onAction;
   final void Function(int seatIndex)? onSeatSelected;
+  final HandResult? handResult;
 
   @override
   ConsumerState<PokerTable> createState() => _PokerTableState();
@@ -37,8 +46,17 @@ class _PokerTableState extends ConsumerState<PokerTable> {
   /// Track recent actions by player userId
   final Map<String, _PlayerActionData> _playerActions = {};
 
+  /// Track winners by player odId (user_id)
+  final Map<String, _PlayerWinnerData> _playerWinners = {};
+
   /// Track last hand number to clear actions on new hand
   int _lastHandNumber = 0;
+
+  /// Track last processed hand result to avoid duplicate processing
+  HandResult? _lastHandResult;
+
+  /// Track community cards from last hand result for display during showdown
+  List<PlayingCard> _handResultCommunityCards = [];
 
   /// Get the rotation offset to position the current user at the bottom
   /// Returns the angle offset in radians
@@ -66,10 +84,27 @@ class _PokerTableState extends ConsumerState<PokerTable> {
       },
     );
 
-    // Clear actions when a new hand starts
+    // Clear actions and winners when a new hand starts
     if (widget.gameState.handNumber != _lastHandNumber) {
       _lastHandNumber = widget.gameState.handNumber;
       _playerActions.clear();
+      _playerWinners.clear();
+      _lastHandResult = null;
+      _handResultCommunityCards = [];
+    }
+
+    // Process new hand result if provided
+    if (widget.handResult != null && widget.handResult != _lastHandResult) {
+      _lastHandResult = widget.handResult;
+      _playerWinners.clear();
+      for (final winner in widget.handResult!.winners) {
+        _playerWinners[winner.odId] = _PlayerWinnerData(
+          amount: winner.amount,
+          handName: winner.handName,
+        );
+      }
+      // Store community cards from hand result for display
+      _handResultCommunityCards = widget.handResult!.communityCards;
     }
 
     return LayoutBuilder(
@@ -144,13 +179,20 @@ class _PokerTableState extends ConsumerState<PokerTable> {
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Pot display (only during active game)
+              // Pot display (during active game or when showing hand result)
               if (widget.gameState.pot > 0 && widget.gameState.isInProgress)
-                PotDisplay(pot: widget.gameState.pot),
-              if (widget.gameState.isInProgress) const SizedBox(height: 16),
-              // Community cards (only during active game)
+                PotDisplay(pot: widget.gameState.pot)
+              else if (_playerWinners.isNotEmpty && widget.handResult != null)
+                PotDisplay(pot: widget.handResult!.pot),
+              if (widget.gameState.isInProgress ||
+                  _handResultCommunityCards.isNotEmpty)
+                const SizedBox(height: 16),
+              // Community cards (during active game or when showing hand result)
               if (widget.gameState.isInProgress)
                 CommunityCards(cards: widget.gameState.communityCards)
+              else if (_handResultCommunityCards.isNotEmpty)
+                // Show community cards from hand result when winner is displayed
+                CommunityCards(cards: _handResultCommunityCards)
               else
                 _buildWaitingMessage(),
             ],
@@ -208,6 +250,14 @@ class _PokerTableState extends ConsumerState<PokerTable> {
       // Get the player's recent action if any
       final actionData = player != null ? _playerActions[player.userId] : null;
 
+      // Get the player's winner info if any
+      final winnerData = player != null ? _playerWinners[player.userId] : null;
+
+      // Get showdown cards from hand result if available
+      final showdownCards = player != null && _lastHandResult != null
+          ? _lastHandResult!.shownHands[player.userId]
+          : null;
+
       seats.add(
         Positioned(
           left: clampedX,
@@ -221,6 +271,13 @@ class _PokerTableState extends ConsumerState<PokerTable> {
                   isBigBlind: _isBigBlind(i),
                   gamePhase: widget.gameState.phase,
                   lastAction: actionData?.action,
+                  winnerInfo: winnerData != null
+                      ? WinnerDisplayInfo(
+                          amount: winnerData.amount,
+                          handName: winnerData.handName,
+                        )
+                      : null,
+                  showdownCards: showdownCards,
                 )
               : EmptySeat(
                   seatNumber: i + 1,

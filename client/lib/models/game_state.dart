@@ -170,7 +170,8 @@ class HandResult extends Equatable {
   const HandResult({
     required this.winners,
     required this.pot,
-    this.playerCards = const {},
+    this.communityCards = const [],
+    this.shownHands = const {},
   });
 
   factory HandResult.fromJson(Map<String, dynamic> json) {
@@ -180,29 +181,39 @@ class HandResult extends Equatable {
             .toList() ??
         [];
 
-    final playerCards = <String, List<PlayingCard>>{};
-    final cardsData = json['player_cards'] as Map<String, dynamic>?;
+    // Parse community cards from hand result
+    final communityCards =
+        (json['community_cards'] as List<dynamic>?)
+            ?.map((c) => PlayingCard.fromString(c as String))
+            .toList() ??
+        [];
+
+    // Parse shown hands (server sends 'shown_hands', not 'player_cards')
+    final shownHands = <String, List<PlayingCard>>{};
+    final cardsData = json['shown_hands'] as Map<String, dynamic>?;
     if (cardsData != null) {
       for (final entry in cardsData.entries) {
         final cards = (entry.value as List<dynamic>)
             .map((c) => PlayingCard.fromString(c as String))
             .toList();
-        playerCards[entry.key] = cards;
+        shownHands[entry.key] = cards;
       }
     }
 
     return HandResult(
       winners: winners,
-      pot: json['pot'] as int? ?? 0,
-      playerCards: playerCards,
+      pot: json['pot'] as int? ?? json['pot_total'] as int? ?? 0,
+      communityCards: communityCards,
+      shownHands: shownHands,
     );
   }
   final List<Winner> winners;
   final int pot;
-  final Map<String, List<PlayingCard>> playerCards;
+  final List<PlayingCard> communityCards;
+  final Map<String, List<PlayingCard>> shownHands;
 
   @override
-  List<Object?> get props => [winners, pot, playerCards];
+  List<Object?> get props => [winners, pot, communityCards, shownHands];
 }
 
 class Winner extends Equatable {

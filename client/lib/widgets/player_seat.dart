@@ -2,8 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:poker_app/core/constants.dart';
 import 'package:poker_app/core/theme.dart';
 import 'package:poker_app/core/utils.dart';
+import 'package:poker_app/models/card.dart';
 import 'package:poker_app/models/player.dart';
 import 'package:poker_app/widgets/playing_card.dart';
+
+/// Data class to hold winner display info
+class WinnerDisplayInfo {
+  const WinnerDisplayInfo({
+    required this.amount,
+    this.handName,
+  });
+  final int amount;
+  final String? handName;
+}
 
 /// A player seat widget showing player info, chips, and cards
 class PlayerSeat extends StatefulWidget {
@@ -14,24 +25,31 @@ class PlayerSeat extends StatefulWidget {
     this.isSmallBlind = false,
     this.isBigBlind = false,
     this.lastAction,
+    this.winnerInfo,
     this.gamePhase = GamePhase.waiting,
+    this.showdownCards,
   });
   final Player player;
   final bool isCurrentTurn;
   final bool isSmallBlind;
   final bool isBigBlind;
   final PlayerAction? lastAction;
+  final WinnerDisplayInfo? winnerInfo;
   final GamePhase gamePhase;
+  /// Cards revealed during showdown (from hand result)
+  final List<PlayingCard>? showdownCards;
 
   @override
   State<PlayerSeat> createState() => _PlayerSeatState();
 }
 
-class _PlayerSeatState extends State<PlayerSeat>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
+class _PlayerSeatState extends State<PlayerSeat> with TickerProviderStateMixin {
+  late AnimationController _actionAnimationController;
+  late Animation<double> _actionFadeAnimation;
+  late AnimationController _winnerAnimationController;
+  late Animation<double> _winnerFadeAnimation;
   PlayerAction? _displayedAction;
+  WinnerDisplayInfo? _displayedWinner;
 
   /// Whether the player is out of chips and waiting for a rebuy
   bool get _isOutOfChips => widget.player.chips == 0 && !widget.player.isAllIn;
@@ -39,18 +57,40 @@ class _PlayerSeatState extends State<PlayerSeat>
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
+    // Action animation controller
+    _actionAnimationController = AnimationController(
       duration: const Duration(milliseconds: 200),
       reverseDuration: const Duration(milliseconds: 400),
       vsync: this,
     );
-    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    _actionFadeAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _actionAnimationController,
+        curve: Curves.easeOut,
+      ),
+    );
+
+    // Winner animation controller (longer display time)
+    _winnerAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      reverseDuration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+    _winnerFadeAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _winnerAnimationController,
+        curve: Curves.easeOut,
+      ),
     );
 
     // Show action if already set
     if (widget.lastAction != null) {
       _showAction(widget.lastAction!);
+    }
+
+    // Show winner if already set
+    if (widget.winnerInfo != null) {
+      _showWinner(widget.winnerInfo!);
     }
   }
 
@@ -62,17 +102,22 @@ class _PlayerSeatState extends State<PlayerSeat>
         widget.lastAction != oldWidget.lastAction) {
       _showAction(widget.lastAction!);
     }
+    // Show winner when it changes
+    if (widget.winnerInfo != null &&
+        widget.winnerInfo != oldWidget.winnerInfo) {
+      _showWinner(widget.winnerInfo!);
+    }
   }
 
   void _showAction(PlayerAction action) {
     setState(() {
       _displayedAction = action;
     });
-    _animationController.forward(from: 0).then((_) {
+    _actionAnimationController.forward(from: 0).then((_) {
       // Hold for a moment, then fade out
       Future.delayed(const Duration(milliseconds: 1500), () {
         if (mounted) {
-          _animationController.reverse().then((_) {
+          _actionAnimationController.reverse().then((_) {
             if (mounted) {
               setState(() {
                 _displayedAction = null;
@@ -84,9 +129,30 @@ class _PlayerSeatState extends State<PlayerSeat>
     });
   }
 
+  void _showWinner(WinnerDisplayInfo winnerInfo) {
+    setState(() {
+      _displayedWinner = winnerInfo;
+    });
+    _winnerAnimationController.forward(from: 0).then((_) {
+      // Hold for longer (3 seconds), then fade out
+      Future.delayed(const Duration(milliseconds: 3000), () {
+        if (mounted) {
+          _winnerAnimationController.reverse().then((_) {
+            if (mounted) {
+              setState(() {
+                _displayedWinner = null;
+              });
+            }
+          });
+        }
+      });
+    });
+  }
+
   @override
   void dispose() {
-    _animationController.dispose();
+    _actionAnimationController.dispose();
+    _winnerAnimationController.dispose();
     super.dispose();
   }
 
@@ -94,9 +160,14 @@ class _PlayerSeatState extends State<PlayerSeat>
   Widget build(BuildContext context) {
     // Only show cards during active game phases, not when waiting
     final isGameActive = widget.gamePhase != GamePhase.waiting;
+    // Check if we have showdown cards to display (revealed during showdown)
+    final hasShowdownCards =
+        widget.showdownCards != null && widget.showdownCards!.isNotEmpty;
     final shouldShowCards =
-        isGameActive &&
-        (widget.player.holeCards.isNotEmpty || widget.player.hasCards) &&
+        (isGameActive || hasShowdownCards) &&
+        (widget.player.holeCards.isNotEmpty ||
+            widget.player.hasCards ||
+            hasShowdownCards) &&
         !_isOutOfChips;
 
     return Opacity(
@@ -107,7 +178,9 @@ class _PlayerSeatState extends State<PlayerSeat>
           mainAxisSize: MainAxisSize.min,
           children: [
             // Cards (only if player has cards and game is active)
-            if (shouldShowCards && !widget.player.isFolded)
+            // Show face-up cards if not folded OR if we have showdown cards
+            if (shouldShowCards &&
+                (!widget.player.isFolded || hasShowdownCards))
               _buildCards()
             else if (shouldShowCards && widget.player.isFolded)
               _buildFoldedCards(),
@@ -128,8 +201,12 @@ class _PlayerSeatState extends State<PlayerSeat>
       children: [
         // Player info container (base layer)
         _buildPlayerInfo(context),
+        // Winner label overlay (higher priority than action)
+        if (_displayedWinner != null)
+          _buildWinnerLabel()
         // Action label overlay (top layer)
-        if (_displayedAction != null) _buildActionLabel(),
+        else if (_displayedAction != null)
+          _buildActionLabel(),
       ],
     );
   }
@@ -138,7 +215,7 @@ class _PlayerSeatState extends State<PlayerSeat>
     final (label, color) = _getActionDisplay(_displayedAction!);
 
     return FadeTransition(
-      opacity: _fadeAnimation,
+      opacity: _actionFadeAnimation,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
@@ -164,6 +241,55 @@ class _PlayerSeatState extends State<PlayerSeat>
     );
   }
 
+  Widget _buildWinnerLabel() {
+    return FadeTransition(
+      opacity: _winnerFadeAnimation,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              PokerTheme.goldAccent,
+              Color(0xFFD4A574),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: PokerTheme.goldAccent.withValues(alpha: 0.6),
+              blurRadius: 12,
+              spreadRadius: 3,
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'WINNER',
+              style: TextStyle(
+                color: Colors.black87,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1,
+              ),
+            ),
+            Text(
+              '+${formatChips(_displayedWinner!.amount)}',
+              style: const TextStyle(
+                color: Colors.black,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   (String, Color) _getActionDisplay(PlayerAction action) {
     return switch (action) {
       PlayerAction.fold => ('FOLD', Colors.grey.shade600),
@@ -183,9 +309,17 @@ class _PlayerSeatState extends State<PlayerSeat>
   }
 
   Widget _buildCards() {
+    // During showdown, use showdown cards if available (revealed hands)
+    final cardsToShow = widget.showdownCards ?? widget.player.holeCards;
+    final hasShowdownCards =
+        widget.showdownCards != null && widget.showdownCards!.isNotEmpty;
+
     return HoleCards(
-      cards: widget.player.holeCards,
-      isHidden: widget.player.holeCards.isEmpty && !widget.player.isYou,
+      cards: cardsToShow,
+      // Show cards face-up if: it's the current player, OR we have showdown
+      // cards. Hidden only if empty AND not yours AND no showdown cards.
+      isHidden:
+          cardsToShow.isEmpty && !widget.player.isYou && !hasShowdownCards,
       isSmall: !widget.player.isYou,
     );
   }

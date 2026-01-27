@@ -111,7 +111,7 @@ class _ActionButtonsPanelState extends State<ActionButtonsPanel> {
             const SizedBox(width: 8),
             _raisePercentButton('75%', 0.75, action),
             const SizedBox(width: 8),
-            _raisePercentButton('100%', 1.0, action),
+            _raisePercentButton('100%', 1, action),
           ],
         ),
       ],

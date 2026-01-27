@@ -34,24 +34,37 @@ class PlayingCardWidget extends StatelessWidget {
           color: isFaceDown || card == null
               ? PokerTheme.chipBlue
               : PokerTheme.cardWhite,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isHighlighted ? PokerTheme.goldAccent : Colors.grey.shade700,
-            width: isHighlighted ? 2 : 1,
+            color: isHighlighted 
+                ? PokerTheme.goldAccent 
+                : (isFaceDown || card == null) 
+                    ? Colors.grey.shade600 
+                    : Colors.grey.shade400,
+            width: isHighlighted ? 2.5 : 1.5,
           ),
           boxShadow: [
             BoxShadow(
               color: isHighlighted
-                  ? PokerTheme.goldAccent.withValues(alpha: 0.5)
-                  : Colors.black26,
-              blurRadius: isHighlighted ? 8 : 4,
-              offset: const Offset(2, 2),
+                  ? PokerTheme.goldAccent.withValues(alpha: 0.6)
+                  : Colors.black54,
+              blurRadius: isHighlighted ? 12 : 6,
+              offset: const Offset(2, 3),
             ),
+            if (isHighlighted)
+              BoxShadow(
+                color: PokerTheme.goldAccent.withValues(alpha: 0.3),
+                blurRadius: 20,
+                spreadRadius: 2,
+              ),
           ],
         ),
-        child: isFaceDown || card == null
-            ? _buildCardBack()
-            : _buildCardFace(card!),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(9),
+          child: isFaceDown || card == null
+              ? _buildCardBack()
+              : _buildCardFace(card!),
+        ),
       ),
     );
   }
@@ -59,110 +72,203 @@ class PlayingCardWidget extends StatelessWidget {
   Widget _buildCardBack() {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(7),
-        gradient: LinearGradient(
+        borderRadius: BorderRadius.circular(9),
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            PokerTheme.chipBlue,
-            PokerTheme.chipBlue.withValues(alpha: 0.8),
+            Color(0xFF2196F3),
+            Color(0xFF1565C0),
+            Color(0xFF0D47A1),
           ],
+          stops: [0.0, 0.5, 1.0],
         ),
       ),
-      child: Center(
-        child: Container(
-          width: width * 0.7,
-          height: height * 0.8,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: Colors.white24),
+      child: Stack(
+        children: [
+          // Diamond pattern overlay
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _DiamondPatternPainter(),
+            ),
           ),
-          child: const Center(
-            child: Text(
-              '♠♥\n♦♣',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white30,
-                fontSize: 14,
-                height: 1.2,
+          // Center emblem
+          Center(
+            child: Container(
+              width: width * 0.6,
+              height: height * 0.5,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  width: 2,
+                ),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.white.withValues(alpha: 0.15),
+                    Colors.white.withValues(alpha: 0.05),
+                  ],
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  '♠',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.4),
+                    fontSize: width * 0.35,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
           ),
-        ),
+          // Shine effect
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: height * 0.25,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.white.withValues(alpha: 0.25),
+                    Colors.white.withValues(alpha: 0.0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildCardFace(PlayingCard card) {
     final color = Color(card.suit.color);
+    final isRed = card.suit.symbol == '♥' || card.suit.symbol == '♦';
 
-    return Stack(
-      children: [
-        // Top-left rank and suit
-        Positioned(
-          top: 0,
-          left: 0,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                card.rank.code,
-                style: TextStyle(
-                  color: color,
-                  fontSize: width * 0.28,
-                  fontWeight: FontWeight.bold,
-                  height: 1,
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(7),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white,
+            PokerTheme.cardWhite,
+            Colors.grey.shade100,
+          ],
+          stops: const [0.0, 0.5, 1.0],
+        ),
+      ),
+      child: Stack(
+        children: [
+          // Subtle shine effect
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: height * 0.3,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.white.withValues(alpha: 0.6),
+                    Colors.white.withValues(alpha: 0.0),
+                  ],
                 ),
               ),
-              Text(
-                card.suit.symbol,
-                style: TextStyle(
-                  color: color,
-                  fontSize: width * 0.22,
-                  height: 0.9,
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-        // Center suit (larger)
-        Center(
-          child: Text(
-            card.suit.symbol,
-            style: TextStyle(color: color, fontSize: width * 0.45),
-          ),
-        ),
-        // Bottom-right rank and suit (inverted)
-        Positioned(
-          bottom: 0,
-          right: 0,
-          child: Transform.rotate(
-            angle: 3.14159, // 180 degrees
+          // Top-left rank and suit - larger and bolder
+          Positioned(
+            top: height * 0.04,
+            left: width * 0.08,
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
                   card.rank.code,
                   style: TextStyle(
                     color: color,
-                    fontSize: width * 0.28,
-                    fontWeight: FontWeight.bold,
+                    fontSize: width * 0.38,
+                    fontWeight: FontWeight.w800,
                     height: 1,
+                    shadows: [
+                      Shadow(
+                        color: color.withValues(alpha: 0.3),
+                        blurRadius: 2,
+                        offset: const Offset(1, 1),
+                      ),
+                    ],
                   ),
                 ),
                 Text(
                   card.suit.symbol,
                   style: TextStyle(
                     color: color,
-                    fontSize: width * 0.22,
-                    height: 0.9,
+                    fontSize: width * 0.32,
+                    height: 0.85,
+                    shadows: [
+                      Shadow(
+                        color: color.withValues(alpha: 0.3),
+                        blurRadius: 2,
+                        offset: const Offset(1, 1),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-        ),
-      ],
+          // Large center suit with glow effect - positioned in bottom-right area
+          Positioned(
+            right: width * 0.08,
+            bottom: height * 0.08,
+            child: ShaderMask(
+              shaderCallback: (bounds) => LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: isRed
+                    ? [
+                        const Color(0xFFFF4444),
+                        color,
+                        const Color(0xFFCC0000),
+                      ]
+                    : [
+                        const Color(0xFF333333),
+                        color,
+                        const Color(0xFF000000),
+                      ],
+              ).createShader(bounds),
+              child: Text(
+                card.suit.symbol,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: width * 0.55,
+                  shadows: [
+                    Shadow(
+                      color: color.withValues(alpha: 0.4),
+                      blurRadius: 8,
+                      offset: const Offset(2, 2),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -236,6 +342,33 @@ class CommunityCards extends StatelessWidget {
   }
 }
 
+/// Custom painter for diamond pattern on card back
+class _DiamondPatternPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.08)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+
+    const spacing = 12.0;
+    for (double y = 0; y < size.height + spacing; y += spacing) {
+      for (double x = 0; x < size.width + spacing; x += spacing) {
+        final path = Path()
+          ..moveTo(x, y - 4)
+          ..lineTo(x + 4, y)
+          ..lineTo(x, y + 4)
+          ..lineTo(x - 4, y)
+          ..close();
+        canvas.drawPath(path, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
 /// Hole cards display (player's cards)
 class HoleCards extends StatelessWidget {
   const HoleCards({
@@ -248,35 +381,53 @@ class HoleCards extends StatelessWidget {
   final bool isHidden;
   final bool isSmall;
 
+  // Tilt angle in radians (~8 degrees)
+  static const double _tiltAngle = 0.14;
+
   @override
   Widget build(BuildContext context) {
     final cardWidth = isSmall ? 35.0 : 60.0;
     final cardHeight = isSmall ? 49.0 : 84.0;
-    final overlap = isSmall ? 15.0 : 25.0;
+    final overlap = isSmall ? 25.0 : 42.0;
+    // Extra height for tilted cards
+    final extraHeight = cardHeight * 0.15;
 
     return SizedBox(
       width: cardWidth * 2 - overlap,
-      height: cardHeight,
+      height: cardHeight + extraHeight,
       child: Stack(
+        alignment: Alignment.bottomCenter,
         children: [
+          // Left card - tilts left
           if (cards.isNotEmpty || isHidden)
             Positioned(
               left: 0,
-              child: PlayingCardWidget(
-                card: cards.isNotEmpty ? cards[0] : null,
-                isFaceDown: isHidden,
-                width: cardWidth,
-                height: cardHeight,
+              bottom: 0,
+              child: Transform.rotate(
+                angle: -_tiltAngle,
+                alignment: Alignment.bottomCenter,
+                child: PlayingCardWidget(
+                  card: cards.isNotEmpty ? cards[0] : null,
+                  isFaceDown: isHidden,
+                  width: cardWidth,
+                  height: cardHeight,
+                ),
               ),
             ),
+          // Right card - tilts right
           if (cards.length > 1 || isHidden)
             Positioned(
-              left: cardWidth - overlap,
-              child: PlayingCardWidget(
-                card: cards.length > 1 ? cards[1] : null,
-                isFaceDown: isHidden,
-                width: cardWidth,
-                height: cardHeight,
+              right: 0,
+              bottom: 0,
+              child: Transform.rotate(
+                angle: _tiltAngle,
+                alignment: Alignment.bottomCenter,
+                child: PlayingCardWidget(
+                  card: cards.length > 1 ? cards[1] : null,
+                  isFaceDown: isHidden,
+                  width: cardWidth,
+                  height: cardHeight,
+                ),
               ),
             ),
         ],
