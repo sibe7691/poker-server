@@ -55,6 +55,15 @@ CREATE TABLE IF NOT EXISTS hand_history (
 
 CREATE INDEX IF NOT EXISTS idx_hands_session ON hand_history(session_id);
 
+-- Table state snapshots (backup of Redis state for durability)
+CREATE TABLE IF NOT EXISTS table_states (
+    table_id VARCHAR(100) PRIMARY KEY,
+    state JSONB NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_table_states_updated ON table_states(updated_at);
+
 -- Update trigger for users.updated_at
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
