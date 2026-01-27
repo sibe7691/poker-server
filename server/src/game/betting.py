@@ -1,4 +1,5 @@
 """Betting round logic."""
+from datetime import datetime, timezone
 from enum import Enum
 from dataclasses import dataclass
 from typing import Optional, TYPE_CHECKING
@@ -66,6 +67,8 @@ class BettingRound:
         self._action_on: int = start_position % len(players) if players else 0
         self._actions_taken: dict[str, int] = {}  # user_id -> number of actions
         self._round_complete = False
+        self.turn_started_at: datetime = datetime.now(timezone.utc)
+        self.using_time_bank: bool = False  # True when main time expired
     
     def get_current_player(self) -> Optional["Player"]:
         """Get the player whose turn it is.
@@ -216,6 +219,10 @@ class BettingRound:
         # Move to next player
         self._action_on = (self._action_on + 1) % len(self.players)
         
+        # Reset turn timer for next player
+        self.turn_started_at = datetime.now(timezone.utc)
+        self.using_time_bank = False
+        
         # Check if round is complete
         self._check_round_complete()
         
@@ -279,6 +286,36 @@ class BettingRound:
         """Force the round to complete (e.g., all but one folded)."""
         self._round_complete = True
     
+    def get_time_elapsed(self) -> float:
+        """Get seconds elapsed since turn started."""
+        return (datetime.now(timezone.utc) - self.turn_started_at).total_seconds()
+    
+    def get_time_remaining(self, turn_time: int, player_time_bank: float) -> tuple[float, bool]:
+        """Calculate time remaining for current player.
+        
+        Args:
+            turn_time: Base turn time in seconds.
+            player_time_bank: Player's remaining time bank.
+            
+        Returns:
+            Tuple of (seconds_remaining, using_time_bank).
+        """
+        elapsed = self.get_time_elapsed()
+        
+        if elapsed <= turn_time:
+            # Still in main time
+            return turn_time - elapsed, False
+        else:
+            # In time bank
+            time_bank_used = elapsed - turn_time
+            remaining = player_time_bank - time_bank_used
+            return max(0, remaining), True
+    
+    def start_new_turn(self) -> None:
+        """Start a new turn (reset timer)."""
+        self.turn_started_at = datetime.now(timezone.utc)
+        self.using_time_bank = False
+    
     def to_dict(self) -> dict:
         """Serialize betting round state for persistence."""
         return {
@@ -292,6 +329,8 @@ class BettingRound:
             "action_on": self._action_on,
             "actions_taken": self._actions_taken,
             "round_complete": self._round_complete,
+            "turn_started_at": self.turn_started_at.isoformat(),
+            "using_time_bank": self.using_time_bank,
         }
     
     @classmethod
@@ -321,5 +360,10 @@ class BettingRound:
         round._action_on = data["action_on"]
         round._actions_taken = data["actions_taken"]
         round._round_complete = data["round_complete"]
+        
+        # Restore turn timer state
+        if "turn_started_at" in data:
+            round.turn_started_at = datetime.fromisoformat(data["turn_started_at"])
+        round.using_time_bank = data.get("using_time_bank", False)
         
         return round

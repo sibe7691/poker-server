@@ -184,6 +184,11 @@ class GameStateMessage(BaseModel):
     valid_actions: list[str]
     call_amount: int
     min_raise: int
+    # Timer info
+    turn_time_seconds: int = 30
+    time_remaining: Optional[float] = None
+    using_time_bank: bool = False
+    current_player_time_bank: float = 0.0
 
 
 class YourTurnMessage(BaseModel):

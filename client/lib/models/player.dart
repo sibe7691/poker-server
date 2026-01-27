@@ -15,6 +15,7 @@ class Player extends Equatable {
     this.isAllIn = false,
     this.isYou = false,
     this.isConnected = true,
+    this.timeBank = 60,
   });
 
   factory Player.fromJson(Map<String, dynamic> json) {
@@ -36,6 +37,7 @@ class Player extends Equatable {
       isAllIn: json['is_all_in'] as bool? ?? false,
       isYou: json['is_you'] as bool? ?? false,
       isConnected: json['is_connected'] as bool? ?? true,
+      timeBank: (json['time_bank'] as num?)?.toDouble() ?? 60,
     );
   }
   final String userId;
@@ -49,6 +51,7 @@ class Player extends Equatable {
   final bool isAllIn;
   final bool isYou;
   final bool isConnected;
+  final double timeBank;
 
   Player copyWith({
     String? userId,
@@ -62,6 +65,7 @@ class Player extends Equatable {
     bool? isAllIn,
     bool? isYou,
     bool? isConnected,
+    double? timeBank,
   }) {
     return Player(
       userId: userId ?? this.userId,
@@ -75,6 +79,7 @@ class Player extends Equatable {
       isAllIn: isAllIn ?? this.isAllIn,
       isYou: isYou ?? this.isYou,
       isConnected: isConnected ?? this.isConnected,
+      timeBank: timeBank ?? this.timeBank,
     );
   }
 
@@ -97,5 +102,6 @@ class Player extends Equatable {
     isAllIn,
     isYou,
     isConnected,
+    timeBank,
   ];
 }

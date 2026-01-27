@@ -27,6 +27,11 @@ class Config:
     min_players: int = int(os.getenv("MIN_PLAYERS", "2"))
     max_players: int = int(os.getenv("MAX_PLAYERS", "10"))
     
+    # Turn timer defaults (can be overridden per-table)
+    default_turn_time_seconds: int = int(os.getenv("DEFAULT_TURN_TIME", "30"))
+    default_time_bank_seconds: int = int(os.getenv("DEFAULT_TIME_BANK", "60"))
+    time_bank_replenish_per_hand: int = int(os.getenv("TIME_BANK_REPLENISH", "10"))
+    
     # Server
     host: str = os.getenv("HOST", "0.0.0.0")
     port: int = int(os.getenv("PORT", "8765"))

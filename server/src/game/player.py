@@ -18,13 +18,37 @@ class Player:
     current_bet: int = 0
     is_sitting_out: bool = False
     is_disconnected: bool = False
+    time_bank_remaining: float = 60.0  # Seconds of time bank left
     
-    def reset_for_new_hand(self) -> None:
-        """Reset player state for a new hand."""
+    def reset_for_new_hand(self, time_bank_replenish: float = 0) -> None:
+        """Reset player state for a new hand.
+        
+        Args:
+            time_bank_replenish: Seconds to add back to time bank (capped at max).
+        """
         self.hole_cards = []
         self.is_folded = False
         self.is_all_in = False
         self.current_bet = 0
+        # Replenish time bank (cap handled by caller or default max)
+        if time_bank_replenish > 0:
+            self.time_bank_remaining = min(
+                self.time_bank_remaining + time_bank_replenish,
+                120.0  # Max time bank cap
+            )
+    
+    def use_time_bank(self, seconds: float) -> float:
+        """Use time from time bank.
+        
+        Args:
+            seconds: Seconds to use.
+            
+        Returns:
+            Actual seconds used (may be less if bank depleted).
+        """
+        used = min(seconds, self.time_bank_remaining)
+        self.time_bank_remaining -= used
+        return used
     
     def bet(self, amount: int) -> int:
         """Place a bet, going all-in if necessary.
@@ -98,6 +122,7 @@ class Player:
             "is_sitting_out": self.is_sitting_out,
             "is_disconnected": self.is_disconnected,
             "has_cards": len(self.hole_cards) > 0,
+            "time_bank": self.time_bank_remaining,
         }
         
         if not hide_cards:
@@ -122,6 +147,7 @@ class Player:
             current_bet=data.get("current_bet", 0),
             is_sitting_out=data.get("is_sitting_out", False),
             is_disconnected=data.get("is_disconnected", False),
+            time_bank_remaining=data.get("time_bank", 60.0),
         )
         
         if "hole_cards" in data:

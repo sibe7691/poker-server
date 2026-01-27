@@ -90,6 +90,7 @@ class GameServer:
         self.spectators: dict[str, set[str]] = {}  # table_id -> set of user_ids
         self.handler: Optional[MessageHandler] = None
         self.game_session: Optional[GameSession] = None
+        self._timeout_task: Optional[asyncio.Task] = None
 
     async def initialize(self):
         """Initialize server resources."""
@@ -110,10 +111,21 @@ class GameServer:
         # Restore tables from Redis
         await self._restore_tables()
         
+        # Start background timeout checker
+        self._timeout_task = asyncio.create_task(self._check_timeouts_loop())
+        
         logger.info("Game server initialized")
 
     async def cleanup(self):
         """Clean up server resources."""
+        # Cancel timeout checker
+        if self._timeout_task:
+            self._timeout_task.cancel()
+            try:
+                await self._timeout_task
+            except asyncio.CancelledError:
+                pass
+        
         # Save all table states
         for table_id, table in self.tables.items():
             await game_store.save_table_state(table_id, table.to_dict())
@@ -123,6 +135,69 @@ class GameServer:
         await db.disconnect()
         
         logger.info("Game server shutdown complete")
+
+    async def _check_timeouts_loop(self):
+        """Background task to check for turn timeouts."""
+        while True:
+            try:
+                await asyncio.sleep(1)  # Check every second
+                await self._check_all_table_timeouts()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in timeout checker: {e}")
+    
+    async def _check_all_table_timeouts(self):
+        """Check all tables for timeout."""
+        for table_id, table in list(self.tables.items()):
+            await self._check_table_timeout(table_id, table)
+    
+    async def _check_table_timeout(self, table_id: str, table: Table):
+        """Check if current player has timed out at a table."""
+        if not table.current_betting_round:
+            return
+        
+        current_player = table.current_betting_round.get_current_player()
+        if not current_player:
+            return
+        
+        # Get time remaining
+        time_remaining, using_time_bank = table.current_betting_round.get_time_remaining(
+            table.turn_time_seconds,
+            current_player.time_bank_remaining
+        )
+        
+        # If time expired
+        if time_remaining <= 0:
+            # Deduct used time bank
+            if using_time_bank:
+                elapsed = table.current_betting_round.get_time_elapsed()
+                time_bank_used = elapsed - table.turn_time_seconds
+                current_player.use_time_bank(time_bank_used)
+            
+            logger.info(
+                f"Player {current_player.username} timed out at table {table_id}"
+            )
+            
+            # Auto-action: check if possible, otherwise fold
+            from src.game.betting import Action, ActionType
+            valid_actions = table.current_betting_round.get_valid_actions(current_player)
+            
+            if ActionType.CHECK in valid_actions:
+                action = Action(type=ActionType.CHECK)
+                logger.info(f"Auto-check for {current_player.username}")
+            else:
+                action = Action(type=ActionType.FOLD)
+                logger.info(f"Auto-fold for {current_player.username}")
+            
+            # Process the action
+            await table.process_action(current_player.user_id, action)
+            
+            # Broadcast updated state
+            await self.broadcast_game_state(table_id)
+            
+            # Save table state
+            await game_store.save_table_state(table_id, table.to_dict())
 
     async def _restore_tables(self):
         """Restore tables from Redis."""
@@ -339,6 +414,28 @@ class GameServer:
         from src.protocol.messages import TablesListMessage
         message = TablesListMessage(tables=self.get_tables_list())
         await self.broadcast_to_all(message.model_dump())
+
+    async def broadcast_game_state(self, table_id: str):
+        """Broadcast game state to all players at a table."""
+        table = self.tables.get(table_id)
+        if not table:
+            return
+        
+        # Send to seated players
+        for player in table.players.values():
+            state = table.get_state_for_player(player.user_id)
+            await self.send_to_user(
+                player.user_id,
+                GameStateMessage(**state).model_dump()
+            )
+        
+        # Send to spectators
+        spectator_state = table.get_state_for_spectator()
+        for user_id in self.get_spectators(table_id):
+            await self.send_to_user(
+                user_id,
+                GameStateMessage(**spectator_state).model_dump()
+            )
 
 
 # Global server instance

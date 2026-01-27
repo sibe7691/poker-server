@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:poker_app/core/constants.dart';
 import 'package:poker_app/core/theme.dart';
 import 'package:poker_app/core/utils.dart';
+import 'package:poker_app/widgets/turn_timer.dart';
 
 // Fire-and-forget futures are intentional for haptic feedback
 // ignore_for_file: discarded_futures
@@ -16,6 +17,10 @@ class ActionButtonsPanel extends StatefulWidget {
     required this.maxBet,
     required this.pot,
     required this.onAction,
+    this.timeRemaining,
+    this.turnTimeSeconds = 30,
+    this.usingTimeBank = false,
+    this.timeBank = 0,
     super.key,
   });
   final List<PlayerAction> validActions;
@@ -24,6 +29,10 @@ class ActionButtonsPanel extends StatefulWidget {
   final int maxBet;
   final int pot;
   final void Function(PlayerAction action, {int? amount}) onAction;
+  final double? timeRemaining;
+  final int turnTimeSeconds;
+  final bool usingTimeBank;
+  final double timeBank;
 
   @override
   State<ActionButtonsPanel> createState() => _ActionButtonsPanelState();
@@ -52,6 +61,44 @@ class _ActionButtonsPanelState extends State<ActionButtonsPanel> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Timer (if available)
+            if (widget.timeRemaining != null) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TurnTimer(
+                    timeRemaining: widget.timeRemaining!,
+                    totalTime: widget.turnTimeSeconds,
+                    usingTimeBank: widget.usingTimeBank,
+                    timeBank: widget.timeBank,
+                    size: 56,
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'YOUR TURN',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (widget.usingTimeBank)
+                        Text(
+                          'Time Bank: ${widget.timeBank.ceil()}s',
+                          style: const TextStyle(
+                            color: Colors.orange,
+                            fontSize: 11,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
             // Raise menu (if showing)
             if (_showRaiseMenu) _buildRaiseMenu(),
             const SizedBox(height: 12),
@@ -298,6 +345,10 @@ class WaitingIndicator extends StatelessWidget {
     this.autoActionEnabled = false,
     this.autoActionLabel = 'Check / Fold',
     this.onAutoActionChanged,
+    this.timeRemaining,
+    this.turnTimeSeconds = 30,
+    this.usingTimeBank = false,
+    this.timeBank = 0,
   });
   final String? currentPlayerName;
 
@@ -314,6 +365,12 @@ class WaitingIndicator extends StatelessWidget {
   /// Callback when auto-action checkbox is toggled
   final ValueChanged<bool>? onAutoActionChanged;
 
+  /// Timer info
+  final double? timeRemaining;
+  final int turnTimeSeconds;
+  final bool usingTimeBank;
+  final double timeBank;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -326,19 +383,30 @@ class WaitingIndicator extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Waiting message
+            // Timer and waiting message
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(PokerTheme.goldAccent),
+                if (timeRemaining != null) ...[
+                  TurnTimer(
+                    timeRemaining: timeRemaining!,
+                    totalTime: turnTimeSeconds,
+                    usingTimeBank: usingTimeBank,
+                    timeBank: timeBank,
+                    size: 40,
                   ),
-                ),
-                const SizedBox(width: 12),
+                  const SizedBox(width: 12),
+                ] else ...[
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation(PokerTheme.goldAccent),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
                 Text(
                   currentPlayerName != null
                       ? 'Waiting for $currentPlayerName...'

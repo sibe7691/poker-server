@@ -20,6 +20,10 @@ class GameState extends Equatable {
     this.validActions = const [],
     this.callAmount = 0,
     this.minRaise = 0,
+    this.turnTimeSeconds = 30,
+    this.timeRemaining,
+    this.usingTimeBank = false,
+    this.currentPlayerTimeBank = 0,
   });
 
   factory GameState.fromJson(Map<String, dynamic> json) {
@@ -56,6 +60,11 @@ class GameState extends Equatable {
       validActions: validActions,
       callAmount: json['call_amount'] as int? ?? 0,
       minRaise: json['min_raise'] as int? ?? 0,
+      turnTimeSeconds: json['turn_time_seconds'] as int? ?? 30,
+      timeRemaining: (json['time_remaining'] as num?)?.toDouble(),
+      usingTimeBank: json['using_time_bank'] as bool? ?? false,
+      currentPlayerTimeBank:
+          (json['current_player_time_bank'] as num?)?.toDouble() ?? 0,
     );
   }
   final String tableId;
@@ -72,6 +81,11 @@ class GameState extends Equatable {
   final List<PlayerAction> validActions;
   final int callAmount;
   final int minRaise;
+  // Timer info
+  final int turnTimeSeconds;
+  final double? timeRemaining;
+  final bool usingTimeBank;
+  final double currentPlayerTimeBank;
 
   static GamePhase _parsePhase(String? state) {
     return switch (state) {
@@ -127,6 +141,10 @@ class GameState extends Equatable {
     List<PlayerAction>? validActions,
     int? callAmount,
     int? minRaise,
+    int? turnTimeSeconds,
+    double? timeRemaining,
+    bool? usingTimeBank,
+    double? currentPlayerTimeBank,
   }) {
     return GameState(
       tableId: tableId ?? this.tableId,
@@ -143,6 +161,11 @@ class GameState extends Equatable {
       validActions: validActions ?? this.validActions,
       callAmount: callAmount ?? this.callAmount,
       minRaise: minRaise ?? this.minRaise,
+      turnTimeSeconds: turnTimeSeconds ?? this.turnTimeSeconds,
+      timeRemaining: timeRemaining ?? this.timeRemaining,
+      usingTimeBank: usingTimeBank ?? this.usingTimeBank,
+      currentPlayerTimeBank:
+          currentPlayerTimeBank ?? this.currentPlayerTimeBank,
     );
   }
 
@@ -162,6 +185,10 @@ class GameState extends Equatable {
     validActions,
     callAmount,
     minRaise,
+    turnTimeSeconds,
+    timeRemaining,
+    usingTimeBank,
+    currentPlayerTimeBank,
   ];
 }
 

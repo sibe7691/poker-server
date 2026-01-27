@@ -47,6 +47,9 @@ class Table:
         big_blind: int = 2,
         min_players: int = 2,
         max_players: int = 10,
+        turn_time_seconds: int = 30,
+        time_bank_seconds: int = 60,
+        time_bank_replenish: int = 10,
     ):
         """Initialize a poker table.
         
@@ -56,12 +59,20 @@ class Table:
             big_blind: Big blind amount.
             min_players: Minimum players to start.
             max_players: Maximum players at table.
+            turn_time_seconds: Seconds per turn before time bank kicks in.
+            time_bank_seconds: Initial time bank per player.
+            time_bank_replenish: Seconds to replenish time bank per hand.
         """
         self.table_id = table_id
         self.small_blind = small_blind
         self.big_blind = big_blind
         self.min_players = min_players
         self.max_players = max_players
+        
+        # Timer settings
+        self.turn_time_seconds = turn_time_seconds
+        self.time_bank_seconds = time_bank_seconds
+        self.time_bank_replenish = time_bank_replenish
         
         self.state = TableState.WAITING
         self.players: dict[int, Player] = {}  # seat -> player
@@ -106,6 +117,9 @@ class Table:
             return False
         if len(self.players) >= self.max_players:
             return False
+        
+        # Set initial time bank
+        player.time_bank_remaining = float(self.time_bank_seconds)
         
         self.players[player.seat] = player
         logger.info(f"{player.username} joined table {self.table_id} at seat {player.seat}")
@@ -218,7 +232,7 @@ class Table:
         self.community_cards = []
         
         for player in self.players.values():
-            player.reset_for_new_hand()
+            player.reset_for_new_hand(time_bank_replenish=self.time_bank_replenish)
         
         # Move dealer button
         self._advance_dealer()
@@ -592,6 +606,9 @@ class Table:
         valid_actions = []
         call_amount = 0
         min_raise = 0
+        time_remaining = None
+        using_time_bank = False
+        current_player_time_bank = 0.0
         
         if self.current_betting_round:
             current = self.current_betting_round.get_current_player()
@@ -602,6 +619,13 @@ class Table:
                                     self.current_betting_round.get_valid_actions(current)]
                     call_amount = self.current_betting_round.get_call_amount(current)
                     min_raise = self.current_betting_round.get_min_raise()
+                
+                # Calculate time remaining for current player
+                time_remaining, using_time_bank = self.current_betting_round.get_time_remaining(
+                    self.turn_time_seconds,
+                    current.time_bank_remaining
+                )
+                current_player_time_bank = current.time_bank_remaining
         
         return {
             "table_id": self.table_id,
@@ -618,6 +642,10 @@ class Table:
             "valid_actions": valid_actions,
             "call_amount": call_amount,
             "min_raise": min_raise,
+            "turn_time_seconds": self.turn_time_seconds,
+            "time_remaining": time_remaining,
+            "using_time_bank": using_time_bank,
+            "current_player_time_bank": current_player_time_bank,
         }
     
     def get_state_for_spectator(self) -> dict:
@@ -634,6 +662,22 @@ class Table:
             player_data["is_connected"] = not player.is_disconnected
             players_data.append(player_data)
         
+        # Get timer info for spectators too
+        current_player_id = None
+        time_remaining = None
+        using_time_bank = False
+        current_player_time_bank = 0.0
+        
+        if self.current_betting_round:
+            current = self.current_betting_round.get_current_player()
+            if current:
+                current_player_id = current.user_id
+                time_remaining, using_time_bank = self.current_betting_round.get_time_remaining(
+                    self.turn_time_seconds,
+                    current.time_bank_remaining
+                )
+                current_player_time_bank = current.time_bank_remaining
+        
         return {
             "table_id": self.table_id,
             "state": self.state.value,
@@ -645,10 +689,14 @@ class Table:
             "max_players": self.max_players,
             "community_cards": [str(c) for c in self.community_cards],
             "players": players_data,
-            "current_player": None,
+            "current_player": current_player_id,
             "valid_actions": [],
             "call_amount": 0,
             "min_raise": 0,
+            "turn_time_seconds": self.turn_time_seconds,
+            "time_remaining": time_remaining,
+            "using_time_bank": using_time_bank,
+            "current_player_time_bank": current_player_time_bank,
         }
     
     def to_dict(self) -> dict:
@@ -662,6 +710,9 @@ class Table:
             "big_blind": self.big_blind,
             "min_players": self.min_players,
             "max_players": self.max_players,
+            "turn_time_seconds": self.turn_time_seconds,
+            "time_bank_seconds": self.time_bank_seconds,
+            "time_bank_replenish": self.time_bank_replenish,
             "pot": self.pot.to_dict(),
             "community_cards": [c.to_dict() for c in self.community_cards],
             "players": {
@@ -680,6 +731,9 @@ class Table:
             big_blind=data["big_blind"],
             min_players=data.get("min_players", 2),
             max_players=data.get("max_players", 10),
+            turn_time_seconds=data.get("turn_time_seconds", 30),
+            time_bank_seconds=data.get("time_bank_seconds", 60),
+            time_bank_replenish=data.get("time_bank_replenish", 10),
         )
         table.state = TableState(data["state"])
         table.hand_number = data["hand_number"]

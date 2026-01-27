@@ -359,6 +359,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                   maxBet: _gameState!.me?.chips ?? 0,
                   pot: _gameState!.pot,
                   onAction: _sendAction,
+                  timeRemaining: _gameState!.timeRemaining,
+                  turnTimeSeconds: _gameState!.turnTimeSeconds,
+                  usingTimeBank: _gameState!.usingTimeBank,
+                  timeBank: _gameState!.me?.timeBank ?? 0,
                 )
               else if (_gameState != null && _gameState!.isInProgress)
                 WaitingIndicator(
@@ -369,6 +373,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                   onAutoActionChanged: (enabled) {
                     setState(() => _autoActionEnabled = enabled);
                   },
+                  timeRemaining: _gameState!.timeRemaining,
+                  turnTimeSeconds: _gameState!.turnTimeSeconds,
+                  usingTimeBank: _gameState!.usingTimeBank,
+                  timeBank: _gameState!.currentPlayerTimeBank,
                 ),
             ],
           ),
