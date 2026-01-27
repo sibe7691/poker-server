@@ -86,12 +86,19 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     } else {
       debugPrint('GameScreen: Already at table ${widget.tableId}');
       // We're already at this table, but _gameState is null (fresh widget).
-      // Check if we have a cached game state from the provider.
+      // Check if we have a cached game state from the provider or WebSocket service.
       final existingGameState = ref.read(gameStateProvider).valueOrNull;
+      final ws = ref.read(webSocketServiceProvider);
+      final cachedGameState = ws.lastGameState;
+
       if (existingGameState != null &&
           existingGameState.tableId == widget.tableId) {
-        debugPrint('GameScreen: Using cached game state');
+        debugPrint('GameScreen: Using provider cached game state');
         setState(() => _gameState = existingGameState);
+      } else if (cachedGameState != null &&
+          cachedGameState.tableId == widget.tableId) {
+        debugPrint('GameScreen: Using WebSocket cached game state');
+        setState(() => _gameState = cachedGameState);
       } else {
         // No cached state available, re-join to request current state
         debugPrint('GameScreen: Re-joining to request current state');
@@ -213,6 +220,24 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Watch the game state provider to keep it active and get current value
+    final currentGameState = ref.watch(gameStateProvider);
+
+    // Update local state from provider if we don't have it yet
+    // This handles the case where state was received before listener was set up
+    if (_gameState == null && currentGameState.hasValue) {
+      final state = currentGameState.value!;
+      if (state.tableId == widget.tableId) {
+        debugPrint('GameScreen: Using watched game state on build');
+        // Schedule setState for after build to avoid setState during build
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _gameState == null) {
+            setState(() => _gameState = state);
+          }
+        });
+      }
+    }
+
     // Listen for game state updates
     ref.listen<AsyncValue<GameState>>(gameStateProvider, (previous, next) {
       debugPrint(

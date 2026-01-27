@@ -199,6 +199,12 @@ class WebSocketService {
   String? _currentTableId;
   bool _isRefreshingToken = false;
 
+  /// Cache the last game state for reconnection scenarios
+  GameState? _lastGameState;
+
+  /// Get the last received game state (useful for reconnection)
+  GameState? get lastGameState => _lastGameState;
+
   /// Streams for UI to listen to
   Stream<ConnectionStatus> get statusStream => _statusController.stream;
   Stream<GameState> get gameStateStream => _gameStateController.stream;
@@ -527,11 +533,17 @@ class WebSocketService {
 
         case ServerMessageType.gameState:
           final gameState = GameState.fromJson(data);
+          final me = gameState.me;
+          final currentPlayer = gameState.currentPlayer;
           WebSocketLogger.debug(
             'GAME',
             'Game state update - phase: ${gameState.phase.name}, '
-            'pot: ${gameState.pot}, players: ${gameState.players.length}',
+            'pot: ${gameState.pot}, players: ${gameState.players.length}, '
+            'me: ${me?.username ?? "null"} (isYou: ${me?.isYou ?? "N/A"}), '
+            'currentPlayer: ${currentPlayer?.username ?? "null"} (id: ${gameState.currentPlayerId}), '
+            'isMyTurn: ${gameState.isMyTurn}, validActions: ${gameState.validActions}',
           );
+          _lastGameState = gameState;
           _gameStateController.add(gameState);
 
         case ServerMessageType.handResult:
