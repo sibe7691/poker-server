@@ -160,7 +160,8 @@ class ServerMessageType {
   static const String chipsUpdated = 'chips_updated';
   static const String handStarted = 'hand_started';
   static const String stateChanged = 'state_changed';
-  static const String chat = 'chat';
+  static const String chatBroadcast = 'chat_broadcast';
+  static const String chatSent = 'chat_sent';
   static const String ledger = 'ledger';
   static const String standings = 'standings';
   static const String tablesList = 'tables_list';
@@ -538,16 +539,21 @@ class WebSocketService {
           WebSocketLogger.info('GAME', 'Hand result received');
           _handResultController.add(result);
 
-        case ServerMessageType.chat:
+        case ServerMessageType.chatBroadcast:
           final username = data['username'] as String? ?? 'Unknown';
           WebSocketLogger.debug('CHAT', 'Chat from $username');
           final chat = ChatMessage(
             userId: data['user_id'] as String? ?? '',
             username: username,
             message: data['message'] as String? ?? '',
-            timestamp: DateTime.now(),
+            timestamp: DateTime.tryParse(data['timestamp'] as String? ?? '') ??
+                DateTime.now(),
           );
           _chatController.add(chat);
+
+        case ServerMessageType.chatSent:
+          // Acknowledgment that chat was sent - no action needed
+          WebSocketLogger.debug('CHAT', 'Chat message sent successfully');
 
         case ServerMessageType.tablesList:
           final tables =

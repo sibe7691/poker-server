@@ -24,6 +24,13 @@ class _PlayerWinnerData {
   final String? handName;
 }
 
+/// Data class to track a player's chat bubble
+class _PlayerChatData {
+  _PlayerChatData({required this.message, required this.timestamp});
+  final String message;
+  final DateTime timestamp;
+}
+
 /// The visual poker table with player seats arranged in an oval
 class PokerTable extends ConsumerStatefulWidget {
   const PokerTable({
@@ -32,11 +39,14 @@ class PokerTable extends ConsumerStatefulWidget {
     super.key,
     this.onSeatSelected,
     this.handResult,
+    this.chatMessages = const [],
   });
   final GameState gameState;
   final void Function(PlayerAction action, {int? amount}) onAction;
   final void Function(int seatIndex)? onSeatSelected;
   final HandResult? handResult;
+  /// Chat messages to display as bubbles above players
+  final List<ChatMessage> chatMessages;
 
   @override
   ConsumerState<PokerTable> createState() => _PokerTableState();
@@ -49,6 +59,9 @@ class _PokerTableState extends ConsumerState<PokerTable> {
   /// Track winners by player odId (user_id)
   final Map<String, _PlayerWinnerData> _playerWinners = {};
 
+  /// Track chat bubbles by player username
+  final Map<String, _PlayerChatData> _playerChats = {};
+
   /// Track last hand number to clear actions on new hand
   int _lastHandNumber = 0;
 
@@ -57,6 +70,9 @@ class _PokerTableState extends ConsumerState<PokerTable> {
 
   /// Track community cards from last hand result for display during showdown
   List<PlayingCard> _handResultCommunityCards = [];
+
+  /// Track the number of processed chat messages to detect new ones
+  int _lastChatCount = 0;
 
   /// Get the rotation offset to position the current user at the bottom
   /// Returns the angle offset in radians
@@ -91,6 +107,20 @@ class _PokerTableState extends ConsumerState<PokerTable> {
       _playerWinners.clear();
       _lastHandResult = null;
       _handResultCommunityCards = [];
+    }
+
+    // Process new chat messages
+    if (widget.chatMessages.length > _lastChatCount) {
+      // Process only new messages
+      for (var i = _lastChatCount; i < widget.chatMessages.length; i++) {
+        final chatMsg = widget.chatMessages[i];
+        // Use username as key since server doesn't send user_id with chat
+        _playerChats[chatMsg.username] = _PlayerChatData(
+          message: chatMsg.message,
+          timestamp: chatMsg.timestamp,
+        );
+      }
+      _lastChatCount = widget.chatMessages.length;
     }
 
     // Process new hand result if provided
@@ -253,6 +283,9 @@ class _PokerTableState extends ConsumerState<PokerTable> {
       // Get the player's winner info if any
       final winnerData = player != null ? _playerWinners[player.userId] : null;
 
+      // Get the player's chat bubble if any (keyed by username)
+      final chatData = player != null ? _playerChats[player.username] : null;
+
       // Get showdown cards from hand result if available
       final showdownCards = player != null && _lastHandResult != null
           ? _lastHandResult!.shownHands[player.userId]
@@ -275,6 +308,12 @@ class _PokerTableState extends ConsumerState<PokerTable> {
                       ? WinnerDisplayInfo(
                           amount: winnerData.amount,
                           handName: winnerData.handName,
+                        )
+                      : null,
+                  chatBubble: chatData != null
+                      ? ChatBubbleInfo(
+                          message: chatData.message,
+                          timestamp: chatData.timestamp,
                         )
                       : null,
                   showdownCards: showdownCards,

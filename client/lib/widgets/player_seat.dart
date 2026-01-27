@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+
+// Fire-and-forget futures are intentional for animations
+// ignore_for_file: discarded_futures
+
 import 'package:poker_app/core/constants.dart';
 import 'package:poker_app/core/theme.dart';
 import 'package:poker_app/core/utils.dart';
@@ -16,6 +20,16 @@ class WinnerDisplayInfo {
   final String? handName;
 }
 
+/// Data class to hold chat bubble display info
+class ChatBubbleInfo {
+  const ChatBubbleInfo({
+    required this.message,
+    required this.timestamp,
+  });
+  final String message;
+  final DateTime timestamp;
+}
+
 /// A player seat widget showing player info, chips, and cards
 class PlayerSeat extends StatefulWidget {
   const PlayerSeat({
@@ -26,6 +40,7 @@ class PlayerSeat extends StatefulWidget {
     this.isBigBlind = false,
     this.lastAction,
     this.winnerInfo,
+    this.chatBubble,
     this.gamePhase = GamePhase.waiting,
     this.showdownCards,
   });
@@ -35,6 +50,8 @@ class PlayerSeat extends StatefulWidget {
   final bool isBigBlind;
   final PlayerAction? lastAction;
   final WinnerDisplayInfo? winnerInfo;
+  /// Chat bubble to display above the player
+  final ChatBubbleInfo? chatBubble;
   final GamePhase gamePhase;
   /// Cards revealed during showdown (from hand result)
   final List<PlayingCard>? showdownCards;
@@ -48,8 +65,12 @@ class _PlayerSeatState extends State<PlayerSeat> with TickerProviderStateMixin {
   late Animation<double> _actionFadeAnimation;
   late AnimationController _winnerAnimationController;
   late Animation<double> _winnerFadeAnimation;
+  late AnimationController _chatAnimationController;
+  late Animation<double> _chatFadeAnimation;
+  late Animation<Offset> _chatSlideAnimation;
   PlayerAction? _displayedAction;
   WinnerDisplayInfo? _displayedWinner;
+  ChatBubbleInfo? _displayedChat;
 
   /// Whether the player is out of chips and waiting for a rebuy
   bool get _isOutOfChips => widget.player.chips == 0 && !widget.player.isAllIn;
@@ -83,6 +104,28 @@ class _PlayerSeatState extends State<PlayerSeat> with TickerProviderStateMixin {
       ),
     );
 
+    // Chat bubble animation controller
+    _chatAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 250),
+      reverseDuration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+    _chatFadeAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _chatAnimationController,
+        curve: Curves.easeOut,
+      ),
+    );
+    _chatSlideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _chatAnimationController,
+        curve: Curves.easeOut,
+      ),
+    );
+
     // Show action if already set
     if (widget.lastAction != null) {
       _showAction(widget.lastAction!);
@@ -91,6 +134,11 @@ class _PlayerSeatState extends State<PlayerSeat> with TickerProviderStateMixin {
     // Show winner if already set
     if (widget.winnerInfo != null) {
       _showWinner(widget.winnerInfo!);
+    }
+
+    // Show chat bubble if already set
+    if (widget.chatBubble != null) {
+      _showChat(widget.chatBubble!);
     }
   }
 
@@ -106,6 +154,12 @@ class _PlayerSeatState extends State<PlayerSeat> with TickerProviderStateMixin {
     if (widget.winnerInfo != null &&
         widget.winnerInfo != oldWidget.winnerInfo) {
       _showWinner(widget.winnerInfo!);
+    }
+    // Show chat bubble when it changes
+    if (widget.chatBubble != null &&
+        (oldWidget.chatBubble == null ||
+            widget.chatBubble!.timestamp != oldWidget.chatBubble!.timestamp)) {
+      _showChat(widget.chatBubble!);
     }
   }
 
@@ -149,10 +203,31 @@ class _PlayerSeatState extends State<PlayerSeat> with TickerProviderStateMixin {
     });
   }
 
+  void _showChat(ChatBubbleInfo chatInfo) {
+    setState(() {
+      _displayedChat = chatInfo;
+    });
+    _chatAnimationController.forward(from: 0).then((_) {
+      // Hold for 4 seconds, then fade out
+      Future.delayed(const Duration(milliseconds: 4000), () {
+        if (mounted) {
+          _chatAnimationController.reverse().then((_) {
+            if (mounted) {
+              setState(() {
+                _displayedChat = null;
+              });
+            }
+          });
+        }
+      });
+    });
+  }
+
   @override
   void dispose() {
     _actionAnimationController.dispose();
     _winnerAnimationController.dispose();
+    _chatAnimationController.dispose();
     super.dispose();
   }
 
@@ -177,6 +252,8 @@ class _PlayerSeatState extends State<PlayerSeat> with TickerProviderStateMixin {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Chat bubble above player
+            if (_displayedChat != null) _buildChatBubble(),
             // Cards (only if player has cards and game is active)
             // Show face-up cards if not folded OR if we have showdown cards
             if (shouldShowCards &&
@@ -189,6 +266,58 @@ class _PlayerSeatState extends State<PlayerSeat> with TickerProviderStateMixin {
             _buildPlayerInfoWithActionOverlay(context),
             // Note: Bet chips are now rendered separately in PokerTable
             // to position them on the table surface
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChatBubble() {
+    return SlideTransition(
+      position: _chatSlideAnimation,
+      child: FadeTransition(
+        opacity: _chatFadeAnimation,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Chat bubble
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              constraints: const BoxConstraints(maxWidth: 140),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white,
+                    Colors.grey.shade100,
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Text(
+                _displayedChat!.message,
+                style: const TextStyle(
+                  color: Colors.black87,
+                  fontSize: 12,
+                  height: 1.3,
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            // Speech bubble pointer
+            CustomPaint(
+              size: const Size(16, 8),
+              painter: _BubblePointerPainter(),
+            ),
           ],
         ),
       ),
@@ -475,6 +604,27 @@ class _PlayerSeatState extends State<PlayerSeat> with TickerProviderStateMixin {
       ),
     );
   }
+}
+
+/// Custom painter for chat bubble pointer
+class _BubblePointerPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.grey.shade100
+      ..style = PaintingStyle.fill;
+
+    final path = Path()
+      ..moveTo(size.width / 2 - 6, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..lineTo(size.width / 2 + 6, 0)
+      ..close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 /// Empty seat widget for available positions

@@ -39,6 +39,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   /// Track the last hand number to reset auto-action when a new hand starts
   int _lastHandNumber = 0;
 
+  /// Track unread chat message count for badge display
+  int _unreadChatCount = 0;
+
   @override
   void initState() {
     super.initState();
@@ -264,7 +267,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       chatMessagesProvider,
       (previous, next) {
         next.whenData((ChatMessage message) {
-          setState(() => _chatMessages.add(message));
+          setState(() {
+            _chatMessages.add(message);
+            _unreadChatCount++;
+          });
         });
       },
     );
@@ -316,6 +322,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                             ? _selectSeat
                             : null,
                         handResult: _currentHandResult,
+                        chatMessages: _chatMessages,
                       ),
               ),
               // Action buttons (if it's your turn)
@@ -349,7 +356,13 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               backgroundColor: PokerTheme.surfaceDark,
               onPressed: () => _showChatSheet(context),
               child: Badge(
-                isLabelVisible: _chatMessages.isNotEmpty,
+                label: _unreadChatCount > 0
+                    ? Text(
+                        _unreadChatCount > 9 ? '9+' : '$_unreadChatCount',
+                        style: const TextStyle(fontSize: 10),
+                      )
+                    : null,
+                isLabelVisible: _unreadChatCount > 0,
                 child: const Icon(Icons.chat, color: Colors.white70),
               ),
             )
@@ -551,9 +564,13 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
 
   void _showChatSheet(BuildContext context) {
+    // Clear unread count when opening chat
+    setState(() => _unreadChatCount = 0);
+
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: PokerTheme.surfaceDark,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -584,6 +601,8 @@ class _ChatSheet extends StatefulWidget {
 
 class _ChatSheetState extends State<_ChatSheet> {
   final _controller = TextEditingController();
+  final _scrollController = ScrollController();
+  final _focusNode = FocusNode();
 
   @override
   Widget build(BuildContext context) {
@@ -592,7 +611,7 @@ class _ChatSheetState extends State<_ChatSheet> {
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: SizedBox(
-        height: 300,
+        height: 350,
         child: Column(
           children: [
             // Handle
@@ -605,63 +624,137 @@ class _ChatSheetState extends State<_ChatSheet> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.chat, color: PokerTheme.goldAccent, size: 20),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Table Chat',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${widget.messages.length} messages',
+                    style: const TextStyle(color: Colors.white38, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(color: Colors.white12, height: 1),
             // Messages
             Expanded(
               child: widget.messages.isEmpty
                   ? const Center(
-                      child: Text(
-                        'No messages yet',
-                        style: TextStyle(color: Colors.white38),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.chat_bubble_outline,
+                              color: Colors.white24, size: 48),
+                          SizedBox(height: 12),
+                          Text(
+                            'No messages yet',
+                            style: TextStyle(color: Colors.white38),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Be the first to say something!',
+                            style: TextStyle(color: Colors.white24, fontSize: 12),
+                          ),
+                        ],
                       ),
                     )
                   : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      controller: _scrollController,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       itemCount: widget.messages.length,
                       itemBuilder: (context, index) {
                         final msg = widget.messages[index];
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: RichText(
-                            text: TextSpan(
-                              children: [
-                                TextSpan(
-                                  text: '${msg.username}: ',
-                                  style: const TextStyle(
-                                    color: PokerTheme.goldAccent,
-                                    fontWeight: FontWeight.bold,
+                        final isFirst = index == 0;
+                        final prevMsg = isFirst ? null : widget.messages[index - 1];
+                        final showTimeSeparator = isFirst ||
+                            msg.timestamp.difference(prevMsg!.timestamp).inMinutes > 5;
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (showTimeSeparator)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                child: Center(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: PokerTheme.surfaceLight,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      _formatTimestamp(msg.timestamp),
+                                      style: const TextStyle(
+                                        color: Colors.white54,
+                                        fontSize: 11,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                                TextSpan(
-                                  text: msg.message,
-                                  style: const TextStyle(color: Colors.white),
-                                ),
-                              ],
-                            ),
-                          ),
+                              ),
+                            _ChatMessageTile(message: msg),
+                          ],
                         );
                       },
                     ),
             ),
+            const Divider(color: Colors.white12, height: 1),
             // Input
             Padding(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(12),
               child: Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _controller,
-                      decoration: const InputDecoration(
+                      focusNode: _focusNode,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
                         hintText: 'Type a message...',
-                        border: InputBorder.none,
+                        hintStyle: const TextStyle(color: Colors.white38),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide.none,
+                        ),
                         filled: true,
                         fillColor: PokerTheme.surfaceLight,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                       ),
                       onSubmitted: _send,
+                      textInputAction: TextInputAction.send,
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.send, color: PokerTheme.goldAccent),
-                    onPressed: () => _send(_controller.text),
+                  const SizedBox(width: 8),
+                  Container(
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: PokerTheme.goldAccent,
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.send, color: Colors.black),
+                      onPressed: () => _send(_controller.text),
+                    ),
                   ),
                 ],
               ),
@@ -672,15 +765,150 @@ class _ChatSheetState extends State<_ChatSheet> {
     );
   }
 
+  String _formatTimestamp(DateTime timestamp) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final messageDate = DateTime(
+      timestamp.year,
+      timestamp.month,
+      timestamp.day,
+    );
+
+    final timeStr =
+        '${timestamp.hour.toString().padLeft(2, '0')}:'
+        '${timestamp.minute.toString().padLeft(2, '0')}';
+
+    if (messageDate == today) {
+      return 'Today $timeStr';
+    } else if (messageDate == today.subtract(const Duration(days: 1))) {
+      return 'Yesterday $timeStr';
+    } else {
+      return '${timestamp.day}/${timestamp.month} $timeStr';
+    }
+  }
+
   void _send(String text) {
     if (text.trim().isEmpty) return;
     widget.onSend(text.trim());
     _controller.clear();
+    // Keep focus on the text field to keep keyboard open
+    _focusNode.requestFocus();
+    // Scroll to bottom after sending
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
+    _focusNode.dispose();
     super.dispose();
+  }
+}
+
+/// Individual chat message tile
+class _ChatMessageTile extends StatelessWidget {
+  const _ChatMessageTile({required this.message});
+  final ChatMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Avatar
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [
+                  _getUserColor(message.username),
+                  _getUserColor(message.username).withValues(alpha: 0.7),
+                ],
+              ),
+            ),
+            child: Center(
+              child: Text(
+                message.username.isNotEmpty
+                    ? message.username[0].toUpperCase()
+                    : '?',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          // Message content
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      message.username,
+                      style: TextStyle(
+                        color: _getUserColor(message.username),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _formatTime(message.timestamp),
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  message.message,
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getUserColor(String username) {
+    // Generate a consistent color based on username
+    final colors = [
+      PokerTheme.goldAccent,
+      PokerTheme.chipBlue,
+      PokerTheme.chipRed,
+      const Color(0xFF4CAF50),
+      const Color(0xFF9C27B0),
+      const Color(0xFFFF9800),
+      const Color(0xFF00BCD4),
+      const Color(0xFFE91E63),
+    ];
+    final index = username.hashCode.abs() % colors.length;
+    return colors[index];
+  }
+
+  String _formatTime(DateTime timestamp) {
+    return '${timestamp.hour.toString().padLeft(2, '0')}:'
+        '${timestamp.minute.toString().padLeft(2, '0')}';
   }
 }
