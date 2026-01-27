@@ -364,16 +364,7 @@ app = FastAPI(
 # CORS middleware - allow local development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",  # Second client for multiplayer testing
-        "http://127.0.0.1:3001",
-        "http://localhost:8080",
-        "http://127.0.0.1:8080",
-        "http://localhost:5500",  # VS Code Live Server
-        "http://127.0.0.1:5500",
-    ],
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",  # Allow any localhost port
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -619,6 +610,12 @@ async def _handle_potential_reconnect(user: AuthenticatedUser, websocket: WebSoc
                 )
                 
                 state = table.get_state_for_player(user.user_id)
+                logger.info(
+                    f"Reconnect state for {user.username}: "
+                    f"current_player={state.get('current_player')}, "
+                    f"valid_actions={state.get('valid_actions')}, "
+                    f"state={state.get('state')}"
+                )
                 await websocket.send_json(GameStateMessage(**state).model_dump())
                 
                 logger.info(f"User {user.username} reconnected to table {session.table_id}")
