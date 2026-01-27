@@ -19,6 +19,14 @@ class SidePot:
             "amount": self.amount,
             "eligible_players": self.eligible_players,
         }
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> "SidePot":
+        """Restore from dictionary."""
+        return cls(
+            amount=data["amount"],
+            eligible_players=data["eligible_players"],
+        )
 
 
 @dataclass
@@ -116,7 +124,17 @@ class Pot:
         return {
             "total": self.main_pot,
             "side_pots": [sp.to_dict() for sp in self.side_pots],
+            "contributions": self._contributions,
         }
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> "Pot":
+        """Restore from dictionary."""
+        pot = cls()
+        pot.main_pot = data.get("total", 0)
+        pot.side_pots = [SidePot.from_dict(sp) for sp in data.get("side_pots", [])]
+        pot._contributions = data.get("contributions", {})
+        return pot
 
 
 def calculate_winnings(

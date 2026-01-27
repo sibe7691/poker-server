@@ -278,3 +278,48 @@ class BettingRound:
     def force_complete(self) -> None:
         """Force the round to complete (e.g., all but one folded)."""
         self._round_complete = True
+    
+    def to_dict(self) -> dict:
+        """Serialize betting round state for persistence."""
+        return {
+            "player_ids": [p.user_id for p in self.players],
+            "small_blind": self.small_blind,
+            "big_blind": self.big_blind,
+            "is_preflop": self.is_preflop,
+            "current_bet": self.current_bet,
+            "min_raise": self.min_raise,
+            "last_raiser": self.last_raiser,
+            "action_on": self._action_on,
+            "actions_taken": self._actions_taken,
+            "round_complete": self._round_complete,
+        }
+    
+    @classmethod
+    def from_dict(cls, data: dict, players_by_id: dict) -> "BettingRound":
+        """Restore betting round from serialized state.
+        
+        Args:
+            data: Serialized betting round data.
+            players_by_id: Dict mapping user_id to Player objects.
+            
+        Returns:
+            Restored BettingRound.
+        """
+        # Reconstruct players list in the same order
+        players = [players_by_id[uid] for uid in data["player_ids"] if uid in players_by_id]
+        
+        round = cls(
+            players=players,
+            small_blind=data["small_blind"],
+            big_blind=data["big_blind"],
+            is_preflop=data["is_preflop"],
+            start_position=0,  # Will be overwritten
+        )
+        round.current_bet = data["current_bet"]
+        round.min_raise = data["min_raise"]
+        round.last_raiser = data["last_raiser"]
+        round._action_on = data["action_on"]
+        round._actions_taken = data["actions_taken"]
+        round._round_complete = data["round_complete"]
+        
+        return round

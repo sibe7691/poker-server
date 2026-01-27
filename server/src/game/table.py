@@ -1,4 +1,5 @@
 """Table state machine for Texas Hold'em."""
+import asyncio
 import uuid
 from enum import Enum
 from dataclasses import dataclass, field
@@ -419,12 +420,42 @@ class Table:
         logger.info(f"Dealt {count} community cards: {cards}")
     
     async def _run_out_board(self) -> None:
-        """Run out remaining community cards when all are all-in."""
-        while len(self.community_cards) < 5:
-            if len(self.community_cards) == 0:
-                self._deal_community_cards(3)
-            else:
-                self._deal_community_cards(1)
+        """Run out remaining community cards when all are all-in.
+        
+        Deals cards with dramatic pauses between each street so players
+        can see the board develop.
+        """
+        RUNOUT_DELAY = 1.5  # seconds between each street
+        
+        # Deal flop if needed
+        if len(self.community_cards) == 0:
+            self.state = TableState.FLOP
+            self._deal_community_cards(3)
+            await self._emit("state_changed", {
+                "state": self.state.value,
+                "community_cards": [str(c) for c in self.community_cards],
+            })
+            await asyncio.sleep(RUNOUT_DELAY)
+        
+        # Deal turn if needed
+        if len(self.community_cards) == 3:
+            self.state = TableState.TURN
+            self._deal_community_cards(1)
+            await self._emit("state_changed", {
+                "state": self.state.value,
+                "community_cards": [str(c) for c in self.community_cards],
+            })
+            await asyncio.sleep(RUNOUT_DELAY)
+        
+        # Deal river if needed
+        if len(self.community_cards) == 4:
+            self.state = TableState.RIVER
+            self._deal_community_cards(1)
+            await self._emit("state_changed", {
+                "state": self.state.value,
+                "community_cards": [str(c) for c in self.community_cards],
+            })
+            await asyncio.sleep(RUNOUT_DELAY)
         
         await self._showdown()
     
@@ -637,6 +668,7 @@ class Table:
                 seat: player.to_dict(hide_cards=False)
                 for seat, player in self.players.items()
             },
+            "current_betting_round": self.current_betting_round.to_dict() if self.current_betting_round else None,
         }
     
     @classmethod
@@ -653,11 +685,22 @@ class Table:
         table.hand_number = data["hand_number"]
         table.dealer_seat = data["dealer_seat"]
         
+        # Restore pot
+        pot_data = data.get("pot")
+        if pot_data:
+            table.pot = Pot.from_dict(pot_data)
+        
         for seat_str, player_data in data["players"].items():
             player = Player.from_dict(player_data)
             table.players[int(seat_str)] = player
         
         for card_data in data["community_cards"]:
             table.community_cards.append(Card.from_dict(card_data))
+        
+        # Restore betting round if game is in progress
+        betting_round_data = data.get("current_betting_round")
+        if betting_round_data:
+            players_by_id = {p.user_id: p for p in table.players.values()}
+            table.current_betting_round = BettingRound.from_dict(betting_round_data, players_by_id)
         
         return table
