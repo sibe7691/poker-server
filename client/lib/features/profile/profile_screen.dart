@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:poker_app/core/theme.dart';
 import 'package:poker_app/providers/providers.dart';
+import 'package:poker_app/widgets/app_background.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -16,19 +17,7 @@ class ProfileScreen extends ConsumerWidget {
     final isAdmin = authState.isAdmin;
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF1B4D3E),
-              Color(0xFF0D2818),
-              Color(0xFF071510),
-            ],
-            stops: [0.0, 0.6, 1.0],
-          ),
-        ),
+      body: AppBackground(
         child: SafeArea(
           child: Column(
             children: [
@@ -77,8 +66,8 @@ class _ProfileHeader extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF1A3D2E).withValues(alpha: 0.95),
-            const Color(0xFF0F2A1D),
+            PokerTheme.surfaceDark.withValues(alpha: 0.95),
+            PokerTheme.darkBackground,
           ],
         ),
         borderRadius: const BorderRadius.vertical(
@@ -223,12 +212,12 @@ class _ProfileInfoCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF1E3A2F),
-            Color(0xFF152A22),
+            PokerTheme.surfaceLight,
+            PokerTheme.surfaceDark,
           ],
         ),
         borderRadius: BorderRadius.circular(20),
@@ -355,7 +344,7 @@ class _AccountSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF163026).withValues(alpha: 0.7),
+        color: PokerTheme.surfaceDark.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.05),

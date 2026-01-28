@@ -367,19 +367,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final controllerState = ref.watch(gameControllerProvider);
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF1B4D3E), // Deep poker green
-              Color(0xFF0D2818), // Darker forest green
-              Color(0xFF071510), // Near black green
-            ],
-            stops: [0.0, 0.6, 1.0],
-          ),
-        ),
+      body: AppBackground(
         child: SafeArea(
           child: Column(
             children: [

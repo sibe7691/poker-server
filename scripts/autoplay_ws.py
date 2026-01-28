@@ -15,7 +15,7 @@ import websockets
 
 API_URL = "http://localhost:8765"
 WS_URL = "ws://localhost:8765/ws"
-TABLE_ID = "ws-test-table"
+TABLE_NAME = "ws-test-table"
 
 
 class Player:
@@ -131,27 +131,26 @@ class Player:
         return True
 
 
-async def create_table(token: str, table_id: str):
-    """Create a table via HTTP API."""
+async def create_table(token: str, table_name: str) -> str | None:
+    """Create a table via HTTP API. Returns the generated table_id."""
     async with httpx.AsyncClient() as client:
         res = await client.post(
             f"{API_URL}/api/tables",
             headers={"Authorization": f"Bearer {token}"},
             json={
-                "table_id": table_id,
+                "table_name": table_name,
                 "small_blind": 1,
                 "big_blind": 2,
                 "max_players": 10
             }
         )
         if res.status_code == 200:
-            print(f"  ✓ Created table '{table_id}'")
-            return True
-        elif "already exists" in res.text:
-            print(f"  ✓ Table '{table_id}' already exists")
-            return True
+            data = res.json()
+            table_id = data.get("table_id")
+            print(f"  ✓ Created table '{table_name}' (ID: {table_id})")
+            return table_id
         print(f"  ✗ Failed to create table: {res.text}")
-        return False
+        return None
 
 
 async def process_messages(player: Player, timeout: float = 0.5):
@@ -189,7 +188,10 @@ async def main():
     
     # Create table (player1 must be admin - promote first if needed)
     print("\n--- Table Setup ---")
-    await create_table(player1.access_token, TABLE_ID)
+    table_id = await create_table(player1.access_token, TABLE_NAME)
+    if not table_id:
+        print("  ✗ Failed to create table, aborting")
+        return
     
     # Connect WebSockets
     print("\n--- WebSocket Connections ---")
@@ -200,11 +202,11 @@ async def main():
     
     # Join table
     print("\n--- Joining Table ---")
-    await player1.send({"type": "join_table", "table_id": TABLE_ID})
+    await player1.send({"type": "join_table", "table_id": table_id})
     await asyncio.sleep(0.5)
     await process_messages(player1)
     
-    await player2.send({"type": "join_table", "table_id": TABLE_ID})
+    await player2.send({"type": "join_table", "table_id": table_id})
     await asyncio.sleep(0.5)
     await process_messages(player2)
     

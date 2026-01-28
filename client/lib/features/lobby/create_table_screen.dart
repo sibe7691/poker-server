@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:poker_app/core/theme.dart';
 import 'package:poker_app/providers/providers.dart';
+import 'package:poker_app/widgets/app_background.dart';
 
 class CreateTableScreen extends ConsumerStatefulWidget {
   const CreateTableScreen({super.key});
@@ -15,7 +16,7 @@ class CreateTableScreen extends ConsumerStatefulWidget {
 
 class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _tableIdController = TextEditingController();
+  final _tableNameController = TextEditingController();
   final _smallBlindController = TextEditingController(text: '1');
   final _bigBlindController = TextEditingController(text: '2');
 
@@ -25,7 +26,7 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
 
   @override
   void dispose() {
-    _tableIdController.dispose();
+    _tableNameController.dispose();
     _smallBlindController.dispose();
     _bigBlindController.dispose();
     super.dispose();
@@ -36,12 +37,12 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
 
     final gameController = ref.read(gameControllerProvider.notifier);
 
-    final tableId = _tableIdController.text.trim();
+    final tableName = _tableNameController.text.trim();
     final smallBlind = int.tryParse(_smallBlindController.text);
     final bigBlind = int.tryParse(_bigBlindController.text);
 
     gameController.createTable(
-      tableId: tableId,
+      tableName: tableName,
       smallBlind: smallBlind,
       bigBlind: bigBlind,
       maxPlayers: _maxPlayers,
@@ -61,19 +62,13 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create Table'),
+        backgroundColor: PokerTheme.surfaceDark.withValues(alpha: 0.9),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => context.pop(),
         ),
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [PokerTheme.surfaceDark, PokerTheme.darkBackground],
-          ),
-        ),
+      body: AppBackground(
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -84,7 +79,7 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
                 children: [
                   _buildHeader(),
                   const SizedBox(height: 32),
-                  _buildTableIdField(),
+                  _buildTableNameField(),
                   const SizedBox(height: 24),
                   _buildMaxPlayersSelector(),
                   const SizedBox(height: 24),
@@ -136,27 +131,27 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
     );
   }
 
-  Widget _buildTableIdField() {
+  Widget _buildTableNameField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionLabel(label: 'Table ID'),
+        const _SectionLabel(label: 'Table Name'),
         const SizedBox(height: 8),
         TextFormField(
-          controller: _tableIdController,
+          controller: _tableNameController,
           decoration: const InputDecoration(
-            hintText: 'Enter table ID',
-            prefixIcon: Icon(Icons.tag),
+            hintText: 'Enter table name',
+            prefixIcon: Icon(Icons.table_restaurant),
           ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
-              return 'Please enter a table ID';
+              return 'Please enter a table name';
             }
             if (value.trim().length < 2) {
-              return 'ID must be at least 2 characters';
+              return 'Name must be at least 2 characters';
             }
-            if (value.trim().length > 30) {
-              return 'ID must be less than 30 characters';
+            if (value.trim().length > 50) {
+              return 'Name must be less than 50 characters';
             }
             return null;
           },

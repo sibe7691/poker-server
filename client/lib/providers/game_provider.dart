@@ -246,13 +246,13 @@ class GameController extends StateNotifier<GameControllerState> {
 
   /// Create a new table (admin)
   void createTable({
-    required String tableId,
+    required String tableName,
     int? smallBlind,
     int? bigBlind,
     int? maxPlayers,
   }) {
     _ws.createTable(
-      tableId: tableId,
+      tableName: tableName,
       smallBlind: smallBlind,
       bigBlind: bigBlind,
       maxPlayers: maxPlayers,

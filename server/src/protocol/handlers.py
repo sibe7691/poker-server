@@ -595,16 +595,9 @@ class MessageHandler:
         if user.role != Role.ADMIN:
             return ErrorMessage(message="Only admin can create tables", code="NOT_ADMIN").model_dump()
         
-        # Check if table already exists
-        if message.table_id in self.server.tables:
-            return ErrorMessage(
-                message=f"Table '{message.table_id}' already exists",
-                code="TABLE_EXISTS"
-            ).model_dump()
-        
-        # Create the table
+        # Create the table (UUID is generated automatically)
         table = self.server.create_table(
-            table_id=message.table_id,
+            table_name=message.table_name,
             small_blind=message.small_blind,
             big_blind=message.big_blind,
             min_players=message.min_players,

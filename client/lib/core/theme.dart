@@ -2,18 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class PokerTheme {
-  // Colors
-  static const Color primaryGreen = Color(0xFF1B5E20);
-  static const Color tableGreen = Color(0xFF2E7D32);
-  static const Color tableFelt = Color(0xFF388E3C);
+  // Colors - Updated to match the dark teal background
+  static const Color primaryTeal = Color(0xFF1A3D4D);
+  static const Color tableGreen = Color(0xFF2E5A5A);
+  static const Color tableFelt = Color(0xFF2D6B6B);
   static const Color goldAccent = Color(0xFFFFD700);
   static const Color chipRed = Color(0xFFD32F2F);
   static const Color chipBlue = Color(0xFF1976D2);
   static const Color chipBlack = Color(0xFF212121);
   static const Color cardWhite = Color(0xFFFAFAFA);
-  static const Color darkBackground = Color(0xFF121212);
-  static const Color surfaceDark = Color(0xFF1E1E1E);
-  static const Color surfaceLight = Color(0xFF2C2C2C);
+  static const Color darkBackground = Color(0xFF0D1B1F);
+  static const Color surfaceDark = Color(0xFF142428);
+  static const Color surfaceLight = Color(0xFF1E3236);
+
+  // Legacy alias for compatibility
+  static const Color primaryGreen = primaryTeal;
 
   static ThemeData get darkTheme {
     return ThemeData(
@@ -26,7 +29,7 @@ class PokerTheme {
         error: chipRed,
         onPrimary: Colors.white,
       ),
-      scaffoldBackgroundColor: darkBackground,
+      scaffoldBackgroundColor: Colors.transparent,
       textTheme: GoogleFonts.interTextTheme(
         ThemeData.dark().textTheme,
       ),

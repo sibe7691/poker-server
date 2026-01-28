@@ -391,21 +391,21 @@ class WebSocketService {
 
   /// Create a new table (admin)
   void createTable({
-    required String tableId,
+    required String tableName,
     int? smallBlind,
     int? bigBlind,
     int? maxPlayers,
   }) {
     final message = <String, dynamic>{
       'type': 'create_table',
-      'table_id': tableId,
+      'table_name': tableName,
     };
     if (smallBlind != null) message['small_blind'] = smallBlind;
     if (bigBlind != null) message['big_blind'] = bigBlind;
     if (maxPlayers != null) message['max_players'] = maxPlayers;
     WebSocketLogger.info(
       'ADMIN',
-      'Creating table: $tableId (blinds: $smallBlind/$bigBlind, max: $maxPlayers)',
+      'Creating table: $tableName (blinds: $smallBlind/$bigBlind, max: $maxPlayers)',
     );
     _send(message);
   }

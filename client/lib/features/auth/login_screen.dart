@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:poker_app/core/theme.dart';
 import 'package:poker_app/models/auth_state.dart';
 import 'package:poker_app/providers/auth_provider.dart';
+import 'package:poker_app/widgets/widgets.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -50,17 +51,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final authState = ref.watch(authProvider);
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              PokerTheme.primaryGreen,
-              PokerTheme.darkBackground,
-            ],
-          ),
-        ),
+      body: AppBackground(
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(

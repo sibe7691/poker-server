@@ -186,19 +186,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen>
       });
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF1B4D3E), // Deep poker green
-              Color(0xFF0D2818), // Darker forest green
-              Color(0xFF071510), // Near black green
-            ],
-            stops: [0.0, 0.6, 1.0],
-          ),
-        ),
+      body: AppBackground(
         child: SafeArea(
           child: Column(
             children: [
@@ -365,8 +353,8 @@ class _LobbyHeader extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF1A3D2E).withValues(alpha: 0.95),
-            const Color(0xFF0F2A1D),
+            PokerTheme.surfaceDark.withValues(alpha: 0.95),
+            PokerTheme.darkBackground,
           ],
         ),
         borderRadius: const BorderRadius.vertical(
@@ -681,19 +669,19 @@ class _CreateTableCTA extends StatelessWidget {
           child: Container(
             height: 100,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Color(0xFF2E8B57), // Sea green
-                  Color(0xFF228B22), // Forest green
-                  Color(0xFF1B6B3E), // Darker green
+                  PokerTheme.tableFelt,
+                  PokerTheme.tableGreen,
+                  PokerTheme.surfaceDark,
                 ],
               ),
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF2E8B57).withValues(alpha: 0.4),
+                  color: PokerTheme.tableFelt.withValues(alpha: 0.4),
                   blurRadius: 16,
                   offset: const Offset(0, 6),
                 ),
@@ -793,10 +781,10 @@ class _PokerTableIllustration extends StatelessWidget {
             width: 85,
             height: 55,
             decoration: BoxDecoration(
-              color: const Color(0xFF1B5E20),
+              color: PokerTheme.tableFelt,
               borderRadius: BorderRadius.circular(30),
               border: Border.all(
-                color: const Color(0xFF8B4513),
+                color: const Color(0xFF5D4037),
                 width: 4,
               ),
               boxShadow: [
@@ -1130,12 +1118,12 @@ class _ModernTableCard extends ConsumerWidget {
                   end: Alignment.bottomRight,
                   colors: isLive
                       ? [
-                          const Color(0xFF1E3A2F),
-                          const Color(0xFF152A22),
+                          PokerTheme.surfaceLight,
+                          PokerTheme.surfaceDark,
                         ]
                       : [
-                          const Color(0xFF1A2E25),
-                          const Color(0xFF12211A),
+                          PokerTheme.surfaceDark,
+                          PokerTheme.darkBackground,
                         ],
                 ),
                 borderRadius: BorderRadius.circular(16),
@@ -1313,21 +1301,21 @@ class _TableVisual extends StatelessWidget {
         gradient: RadialGradient(
           colors: isLive
               ? [
-                  const Color(0xFF3D8B40),
-                  const Color(0xFF2E7D32),
-                  const Color(0xFF1B5E20),
+                  PokerTheme.tableFelt,
+                  PokerTheme.tableGreen,
+                  PokerTheme.surfaceDark,
                 ]
               : [
-                  const Color(0xFF4A4A4A),
-                  const Color(0xFF3A3A3A),
-                  const Color(0xFF2A2A2A),
+                  PokerTheme.surfaceLight,
+                  PokerTheme.surfaceDark,
+                  PokerTheme.darkBackground,
                 ],
           stops: const [0.0, 0.6, 1.0],
         ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isLive
-              ? const Color(0xFF6B4423)
+              ? const Color(0xFF5D4037)
               : Colors.white.withValues(alpha: 0.1),
           width: 3,
         ),

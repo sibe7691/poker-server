@@ -231,18 +231,35 @@ class GameServer:
 
     def create_table(
         self,
-        table_id: str,
+        table_name: str,
         small_blind: int = 1,
         big_blind: int = 2,
         min_players: int = 2,
         max_players: int = 10,
     ) -> Table:
-        """Create a new table (admin only)."""
-        if table_id in self.tables:
-            raise ValueError(f"Table '{table_id}' already exists")
+        """Create a new table (admin only).
+        
+        Args:
+            table_name: User-friendly table name.
+            small_blind: Small blind amount.
+            big_blind: Big blind amount.
+            min_players: Minimum players to start.
+            max_players: Maximum players at table.
+        
+        Returns:
+            Created Table instance with generated UUID as table_id.
+        """
+        # Generate unique UUID for table_id
+        import uuid
+        table_id = str(uuid.uuid4())
+        
+        # Ensure uniqueness (extremely unlikely but check anyway)
+        while table_id in self.tables:
+            table_id = str(uuid.uuid4())
         
         table = Table(
             table_id=table_id,
+            table_name=table_name,
             small_blind=small_blind,
             big_blind=big_blind,
             min_players=min_players,
@@ -255,7 +272,7 @@ class GameServer:
         self.chip_managers[table_id] = ChipManager(self.game_session.id)
         self.chip_managers[table_id].set_table(table)
         
-        logger.info(f"Created table {table_id} (blinds: {small_blind}/{big_blind})")
+        logger.info(f"Created table '{table_name}' (ID: {table_id}, blinds: {small_blind}/{big_blind})")
         return table
 
     async def delete_table(self, table_id: str) -> None:
@@ -407,6 +424,7 @@ class GameServer:
         return [
             {
                 "table_id": table_id,
+                "name": table.table_name,
                 "players": len(table.players),
                 "max_players": table.max_players,
                 "state": table.state.value,
@@ -556,6 +574,7 @@ async def list_tables():
         "tables": [
             {
                 "table_id": table_id,
+                "name": table.table_name,
                 "players": len(table.players),
                 "max_players": table.max_players,
                 "state": table.state.value,
@@ -569,7 +588,7 @@ async def list_tables():
 
 # Admin table management
 class CreateTableRequest(BaseModel):
-    table_id: str
+    table_name: str
     small_blind: int = 1
     big_blind: int = 2
     min_players: int = 2
@@ -608,11 +627,9 @@ async def create_table(
     """Create a new table (admin only)."""
     await get_admin_user(authorization)
     
-    if request.table_id in server.tables:
-        raise HTTPException(status_code=400, detail=f"Table '{request.table_id}' already exists")
-    
+    # Create the table (UUID is generated automatically)
     table = server.create_table(
-        table_id=request.table_id,
+        table_name=request.table_name,
         small_blind=request.small_blind,
         big_blind=request.big_blind,
         min_players=request.min_players,

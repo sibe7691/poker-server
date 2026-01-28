@@ -43,6 +43,7 @@ class Table:
     def __init__(
         self,
         table_id: str,
+        table_name: str,
         small_blind: int = 1,
         big_blind: int = 2,
         min_players: int = 2,
@@ -54,7 +55,8 @@ class Table:
         """Initialize a poker table.
         
         Args:
-            table_id: Unique table identifier.
+            table_id: Unique table identifier (UUID).
+            table_name: User-friendly table name.
             small_blind: Small blind amount.
             big_blind: Big blind amount.
             min_players: Minimum players to start.
@@ -64,6 +66,7 @@ class Table:
             time_bank_replenish: Seconds to replenish time bank per hand.
         """
         self.table_id = table_id
+        self.table_name = table_name
         self.small_blind = small_blind
         self.big_blind = big_blind
         self.min_players = min_players
@@ -800,6 +803,7 @@ class Table:
         """Serialize full table state for persistence."""
         return {
             "table_id": self.table_id,
+            "table_name": self.table_name,
             "state": self.state.value,
             "hand_number": self.hand_number,
             "dealer_seat": self.dealer_seat,
@@ -824,6 +828,7 @@ class Table:
         """Restore table from serialized state."""
         table = cls(
             table_id=data["table_id"],
+            table_name=data.get("table_name", data.get("table_id", "Table")),  # Fallback for old data
             small_blind=data["small_blind"],
             big_blind=data["big_blind"],
             min_players=data.get("min_players", 2),

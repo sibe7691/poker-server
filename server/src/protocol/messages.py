@@ -71,7 +71,7 @@ class StartGameMessage(BaseModel):
 class CreateTableMessage(BaseModel):
     """Admin: create a new table."""
     type: Literal["create_table"] = "create_table"
-    table_id: str
+    table_name: str
     small_blind: int = 1
     big_blind: int = 2
     min_players: int = 2
