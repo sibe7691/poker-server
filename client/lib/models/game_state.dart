@@ -7,6 +7,7 @@ import 'package:poker_app/models/player.dart';
 class GameState extends Equatable {
   const GameState({
     required this.tableId,
+    required this.tableName,
     required this.phase,
     this.handNumber = 0,
     this.dealerSeat = 0,
@@ -47,6 +48,7 @@ class GameState extends Equatable {
 
     return GameState(
       tableId: json['table_id'] as String,
+      tableName: json['table_name'] as String? ?? json['table_id'] as String,
       phase: _parsePhase(json['state'] as String?),
       handNumber: json['hand_number'] as int? ?? 0,
       dealerSeat: json['dealer_seat'] as int? ?? 0,
@@ -68,6 +70,7 @@ class GameState extends Equatable {
     );
   }
   final String tableId;
+  final String tableName;
   final GamePhase phase;
   final int handNumber;
   final int dealerSeat;
@@ -128,6 +131,7 @@ class GameState extends Equatable {
 
   GameState copyWith({
     String? tableId,
+    String? tableName,
     GamePhase? phase,
     int? handNumber,
     int? dealerSeat,
@@ -148,6 +152,7 @@ class GameState extends Equatable {
   }) {
     return GameState(
       tableId: tableId ?? this.tableId,
+      tableName: tableName ?? this.tableName,
       phase: phase ?? this.phase,
       handNumber: handNumber ?? this.handNumber,
       dealerSeat: dealerSeat ?? this.dealerSeat,
@@ -172,6 +177,7 @@ class GameState extends Equatable {
   @override
   List<Object?> get props => [
     tableId,
+    tableName,
     phase,
     handNumber,
     dealerSeat,

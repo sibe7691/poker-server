@@ -506,7 +506,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
             child: Column(
               children: [
                 Text(
-                  widget.tableId,
+                  _gameState?.tableName ?? widget.tableId,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,

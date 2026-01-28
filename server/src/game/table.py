@@ -729,6 +729,7 @@ class Table:
         
         return {
             "table_id": self.table_id,
+            "table_name": self.table_name,
             "state": self.state.value,
             "hand_number": self.hand_number,
             "dealer_seat": self.dealer_seat,
@@ -780,6 +781,7 @@ class Table:
         
         return {
             "table_id": self.table_id,
+            "table_name": self.table_name,
             "state": self.state.value,
             "hand_number": self.hand_number,
             "dealer_seat": self.dealer_seat,

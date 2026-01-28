@@ -171,6 +171,7 @@ class GameStateMessage(BaseModel):
     """Full game state update."""
     type: Literal["game_state"] = "game_state"
     table_id: str
+    table_name: str
     state: str
     hand_number: int
     dealer_seat: int
