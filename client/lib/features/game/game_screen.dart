@@ -318,14 +318,15 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            radius: 1.2,
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
             colors: [
-              PokerTheme.tableFelt,
-              PokerTheme.primaryGreen,
-              PokerTheme.darkBackground,
+              Color(0xFF1B4D3E), // Deep poker green
+              Color(0xFF0D2818), // Darker forest green
+              Color(0xFF071510), // Near black green
             ],
-            stops: [0.0, 0.5, 1.0],
+            stops: [0.0, 0.6, 1.0],
           ),
         ),
         child: SafeArea(

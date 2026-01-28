@@ -10,10 +10,30 @@ import 'package:poker_app/features/auth/login_screen.dart';
 import 'package:poker_app/features/game/game_screen.dart';
 import 'package:poker_app/features/lobby/create_table_screen.dart';
 import 'package:poker_app/features/lobby/lobby_screen.dart';
+import 'package:poker_app/features/profile/profile_screen.dart';
 import 'package:poker_app/providers/providers.dart';
 
 // Fire-and-forget futures are intentional in initState callbacks
 // ignore_for_file: discarded_futures
+
+/// Creates a fade transition page for smoother navigation on web
+CustomTransitionPage<void> _buildFadeTransitionPage({
+  required GoRouterState state,
+  required Widget child,
+}) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 200),
+    reverseTransitionDuration: const Duration(milliseconds: 200),
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return FadeTransition(
+        opacity: animation,
+        child: child,
+      );
+    },
+  );
+}
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -140,21 +160,40 @@ class _PokerAppState extends ConsumerState<PokerApp> {
       routes: [
         GoRoute(
           path: '/login',
-          builder: (context, state) => const LoginScreen(),
+          pageBuilder: (context, state) => _buildFadeTransitionPage(
+            state: state,
+            child: const LoginScreen(),
+          ),
         ),
         GoRoute(
           path: '/lobby',
-          builder: (context, state) => const LobbyScreen(),
+          pageBuilder: (context, state) => _buildFadeTransitionPage(
+            state: state,
+            child: const LobbyScreen(),
+          ),
         ),
         GoRoute(
           path: '/create-table',
-          builder: (context, state) => const CreateTableScreen(),
+          pageBuilder: (context, state) => _buildFadeTransitionPage(
+            state: state,
+            child: const CreateTableScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/profile',
+          pageBuilder: (context, state) => _buildFadeTransitionPage(
+            state: state,
+            child: const ProfileScreen(),
+          ),
         ),
         GoRoute(
           path: '/game/:tableId',
-          builder: (context, state) {
+          pageBuilder: (context, state) {
             final tableId = state.pathParameters['tableId'] ?? 'main';
-            return GameScreen(tableId: tableId);
+            return _buildFadeTransitionPage(
+              state: state,
+              child: GameScreen(tableId: tableId),
+            );
           },
         ),
       ],
