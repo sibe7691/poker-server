@@ -131,12 +131,15 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: PokerTheme.surfaceDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Leave Table?', style: TextStyle(color: Colors.white)),
+        title: const Text(
+          'Leave Table?',
+          style: TextStyle(color: Colors.white),
+        ),
         content: Text(
           _isInActiveHand
               ? 'You are in an active hand. Leaving now will automatically '
-                  'fold your hand and forfeit your current bet.\n\n'
-                  'Are you sure you want to leave?'
+                    'fold your hand and forfeit your current bet.\n\n'
+                    'Are you sure you want to leave?'
               : 'Are you sure you want to leave this table?',
           style: const TextStyle(color: Colors.white70),
         ),
@@ -151,8 +154,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(
-              backgroundColor:
-                  _isInActiveHand ? PokerTheme.chipRed : PokerTheme.goldAccent,
+              backgroundColor: _isInActiveHand
+                  ? PokerTheme.chipRed
+                  : PokerTheme.goldAccent,
               foregroundColor: Colors.white,
             ),
             child: Text(_isInActiveHand ? 'Fold & Leave' : 'Leave'),
@@ -178,10 +182,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         content: Text(
           _isInActiveHand
               ? 'You are in an active hand. Standing up now will automatically '
-                  'fold your hand and forfeit your current bet.\n\n'
-                  'You will continue watching as a spectator.'
+                    'fold your hand and forfeit your current bet.\n\n'
+                    'You will continue watching as a spectator.'
               : 'Are you sure you want to leave your seat? '
-                  'You will continue watching as a spectator.',
+                    'You will continue watching as a spectator.',
           style: const TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -195,8 +199,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(
-              backgroundColor:
-                  _isInActiveHand ? PokerTheme.chipRed : PokerTheme.goldAccent,
+              backgroundColor: _isInActiveHand
+                  ? PokerTheme.chipRed
+                  : PokerTheme.goldAccent,
               foregroundColor: _isInActiveHand ? Colors.white : Colors.black,
             ),
             child: Text(_isInActiveHand ? 'Fold & Stand Up' : 'Stand Up'),
