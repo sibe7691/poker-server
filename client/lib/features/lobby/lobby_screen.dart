@@ -205,7 +205,6 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen>
               _LobbyHeader(
                 username: username,
                 isAdmin: isAdmin,
-                onRefresh: _connectAndLoadTables,
                 onLogout: _logout,
                 onProfile: _openProfile,
                 onCreateTable: () => context.push('/create-table'),
@@ -214,6 +213,11 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen>
             ],
           ),
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _connectAndLoadTables,
+        backgroundColor: PokerTheme.tableFelt,
+        child: const Icon(Icons.refresh_rounded, color: Colors.white),
       ),
     );
   }
@@ -341,7 +345,6 @@ class _LobbyHeader extends StatelessWidget {
   const _LobbyHeader({
     required this.username,
     required this.isAdmin,
-    required this.onRefresh,
     required this.onLogout,
     required this.onProfile,
     required this.onCreateTable,
@@ -349,7 +352,6 @@ class _LobbyHeader extends StatelessWidget {
 
   final String? username;
   final bool isAdmin;
-  final VoidCallback onRefresh;
   final VoidCallback onLogout;
   final VoidCallback onProfile;
   final VoidCallback onCreateTable;
@@ -378,86 +380,117 @@ class _LobbyHeader extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Top row with logo and actions
+          // Logo
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.asset(
+              'assets/images/seven-deuce-logo.png',
+              width: 72,
+              height: 72,
+              fit: BoxFit.cover,
+            ),
+          ),
+          const SizedBox(width: 14),
+          // Title
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Seven Deuce',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                Text(
+                  'POKER CLUB',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: PokerTheme.goldAccent.withValues(alpha: 0.9),
+                    letterSpacing: 3,
+                  ),
+                ),
+                if (isAdmin) ...[
+                  const SizedBox(height: 8),
+                  _CreateTableButton(onPressed: onCreateTable),
+                ],
+              ],
+            ),
+          ),
+          // User info and menu on the right
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Logo and title
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFF2E7D32),
-                      Color(0xFF1B5E20),
+              // User info
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isAdmin) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: PokerTheme.goldAccent.withValues(
+                              alpha: 0.2,
+                            ),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: PokerTheme.goldAccent.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
+                          ),
+                          child: const Text(
+                            'ADMIN',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: PokerTheme.goldAccent,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      Text(
+                        username ?? 'Guest',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: PokerTheme.tableFelt.withValues(alpha: 0.4),
-                      blurRadius: 12,
-                      spreadRadius: 1,
+                  const SizedBox(height: 2),
+                  Text(
+                    'Welcome back!',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withValues(alpha: 0.5),
                     ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.casino,
-                  color: Colors.white,
-                  size: 26,
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Seven Deuce',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    Text(
-                      'POKER CLUB',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: PokerTheme.goldAccent.withValues(alpha: 0.9),
-                        letterSpacing: 3,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Action buttons
-              _HeaderIconButton(
-                icon: Icons.refresh_rounded,
-                onPressed: onRefresh,
-                tooltip: 'Refresh',
-              ),
-              const SizedBox(width: 8),
-              _HeaderMenuButton(
-                onProfile: onProfile,
-                onLogout: onLogout,
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // User info row
-          Row(
-            children: [
+              const SizedBox(width: 12),
               // Avatar
               Container(
-                width: 48,
-                height: 48,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
@@ -469,7 +502,7 @@ class _LobbyHeader extends StatelessWidget {
                   boxShadow: [
                     BoxShadow(
                       color: PokerTheme.goldAccent.withValues(alpha: 0.3),
-                      blurRadius: 12,
+                      blurRadius: 8,
                     ),
                   ],
                 ),
@@ -477,111 +510,21 @@ class _LobbyHeader extends StatelessWidget {
                   child: Text(
                     (username ?? 'U')[0].toUpperCase(),
                     style: const TextStyle(
-                      fontSize: 20,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          username ?? 'Guest',
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                        if (isAdmin) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: PokerTheme.goldAccent.withValues(
-                                alpha: 0.2,
-                              ),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: PokerTheme.goldAccent.withValues(
-                                  alpha: 0.5,
-                                ),
-                              ),
-                            ),
-                            child: const Text(
-                              'ADMIN',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: PokerTheme.goldAccent,
-                                letterSpacing: 1,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Welcome back!',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white.withValues(alpha: 0.5),
-                      ),
-                    ),
-                  ],
-                ),
+              const SizedBox(width: 8),
+              _HeaderMenuButton(
+                onProfile: onProfile,
+                onLogout: onLogout,
               ),
-
-              // Create table button (for admins)
-              if (isAdmin) _CreateTableButton(onPressed: onCreateTable),
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _HeaderIconButton extends StatelessWidget {
-  const _HeaderIconButton({
-    required this.icon,
-    required this.onPressed,
-    required this.tooltip,
-  });
-
-  final IconData icon;
-  final VoidCallback onPressed;
-  final String tooltip;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            child: Icon(
-              icon,
-              color: Colors.white70,
-              size: 22,
-            ),
-          ),
-        ),
       ),
     );
   }
