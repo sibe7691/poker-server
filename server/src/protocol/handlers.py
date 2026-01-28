@@ -364,6 +364,9 @@ class MessageHandler:
             # Auto-start if enough players with chips and game is waiting
             await self._try_auto_start(table, message.table_id)
             
+            # Broadcast lobby update so player counts are accurate
+            await self.server.broadcast_tables_update()
+            
             # Return game state
             return GameStateMessage(
                 **table.get_state_for_player(user.user_id)
@@ -422,6 +425,9 @@ class MessageHandler:
         if user.user_id in self.server.user_tables:
             del self.server.user_tables[user.user_id]
         
+        # Broadcast lobby update so player counts are accurate
+        await self.server.broadcast_tables_update()
+        
         return {"type": "left_table", "table_id": table_id, "was_folded": was_in_hand}
     
     async def _handle_stand_up(self, user: AuthenticatedUser) -> dict:
@@ -478,6 +484,9 @@ class MessageHandler:
         await game_store.save_table_state(table_id, table.to_dict())
         
         logger.info(f"{user.username} stood up from table {table_id}")
+        
+        # Broadcast lobby update so player counts are accurate
+        await self.server.broadcast_tables_update()
         
         return GameStateMessage(
             **table.get_state_for_spectator()

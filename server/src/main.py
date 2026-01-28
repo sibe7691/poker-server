@@ -820,6 +820,9 @@ async def _grace_period_cleanup(user_id: str, table_id: str):
                         spectator_id,
                         GameStateMessage(**state).model_dump()
                     )
+                
+                # Broadcast lobby update so player counts are accurate
+                await server.broadcast_tables_update()
         
         await session_store.delete_session(user_id)
         if user_id in server.user_tables:
