@@ -223,12 +223,12 @@ class _ProfileInfoCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF1E3A2F),
-            const Color(0xFF152A22),
+            Color(0xFF1E3A2F),
+            Color(0xFF152A22),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
@@ -246,15 +246,15 @@ class _ProfileInfoCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
               Icon(
                 Icons.person_outline,
                 color: PokerTheme.goldAccent,
                 size: 20,
               ),
-              const SizedBox(width: 8),
-              const Text(
+              SizedBox(width: 8),
+              Text(
                 'Account Information',
                 style: TextStyle(
                   fontSize: 16,
@@ -364,15 +364,15 @@ class _AccountSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
               Icon(
                 Icons.info_outline,
                 color: Colors.white54,
                 size: 20,
               ),
-              const SizedBox(width: 8),
-              const Text(
+              SizedBox(width: 8),
+              Text(
                 'Account Details',
                 style: TextStyle(
                   fontSize: 16,

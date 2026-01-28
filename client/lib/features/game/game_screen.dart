@@ -86,7 +86,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     } else {
       debugPrint('GameScreen: Already at table ${widget.tableId}');
       // We're already at this table, but _gameState is null (fresh widget).
-      // Check if we have a cached game state from the provider or WebSocket service.
+      // Check if a cached game state from the provider or WebSocket service.
       final existingGameState = ref.read(gameStateProvider).valueOrNull;
       final ws = ref.read(webSocketServiceProvider);
       final cachedGameState = ws.lastGameState;
@@ -117,22 +117,28 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         );
   }
 
-  void _leaveTable() {
-    ref.read(gameControllerProvider.notifier).leaveTable();
-    context.go('/lobby');
+  /// Check if the current player is in an active hand (has cards, not folded)
+  bool get _isInActiveHand {
+    final me = _gameState?.me;
+    if (me == null) return false;
+    return _gameState!.isInProgress && me.hasCards && !me.isFolded;
   }
 
-  Future<void> _standUp() async {
-    final shouldStandUp = await showDialog<bool>(
+  Future<void> _leaveTable() async {
+    // Show confirmation dialog, with extra warning if in active hand
+    final shouldLeave = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: PokerTheme.surfaceDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Stand Up?', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          'Are you sure you want to leave your seat? '
-          'You will continue watching as a spectator.',
-          style: TextStyle(color: Colors.white70),
+        title: const Text('Leave Table?', style: TextStyle(color: Colors.white)),
+        content: Text(
+          _isInActiveHand
+              ? 'You are in an active hand. Leaving now will automatically '
+                  'fold your hand and forfeit your current bet.\n\n'
+                  'Are you sure you want to leave?'
+              : 'Are you sure you want to leave this table?',
+          style: const TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
@@ -145,10 +151,55 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: PokerTheme.goldAccent,
-              foregroundColor: Colors.black,
+              backgroundColor:
+                  _isInActiveHand ? PokerTheme.chipRed : PokerTheme.goldAccent,
+              foregroundColor: Colors.white,
             ),
-            child: const Text('Stand Up'),
+            child: Text(_isInActiveHand ? 'Fold & Leave' : 'Leave'),
+          ),
+        ],
+      ),
+    );
+
+    if ((shouldLeave ?? false) && mounted) {
+      ref.read(gameControllerProvider.notifier).leaveTable();
+      context.go('/lobby');
+    }
+  }
+
+  Future<void> _standUp() async {
+    // Show confirmation dialog, with extra warning if in active hand
+    final shouldStandUp = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: PokerTheme.surfaceDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Stand Up?', style: TextStyle(color: Colors.white)),
+        content: Text(
+          _isInActiveHand
+              ? 'You are in an active hand. Standing up now will automatically '
+                  'fold your hand and forfeit your current bet.\n\n'
+                  'You will continue watching as a spectator.'
+              : 'Are you sure you want to leave your seat? '
+                  'You will continue watching as a spectator.',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white54),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor:
+                  _isInActiveHand ? PokerTheme.chipRed : PokerTheme.goldAccent,
+              foregroundColor: _isInActiveHand ? Colors.white : Colors.black,
+            ),
+            child: Text(_isInActiveHand ? 'Fold & Stand Up' : 'Stand Up'),
           ),
         ],
       ),

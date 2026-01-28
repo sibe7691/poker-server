@@ -7,9 +7,9 @@ import 'package:poker_app/core/theme.dart';
 /// Circular countdown timer for turn time
 class TurnTimer extends StatefulWidget {
   const TurnTimer({
-    super.key,
     required this.timeRemaining,
     required this.totalTime,
+    super.key,
     this.usingTimeBank = false,
     this.timeBank = 0,
     this.size = 48,

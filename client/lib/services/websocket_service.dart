@@ -538,10 +538,10 @@ class WebSocketService {
           WebSocketLogger.debug(
             'GAME',
             'Game state update - phase: ${gameState.phase.name}, '
-            'pot: ${gameState.pot}, players: ${gameState.players.length}, '
-            'me: ${me?.username ?? "null"} (isYou: ${me?.isYou ?? "N/A"}), '
-            'currentPlayer: ${currentPlayer?.username ?? "null"} (id: ${gameState.currentPlayerId}), '
-            'isMyTurn: ${gameState.isMyTurn}, validActions: ${gameState.validActions}',
+                'pot: ${gameState.pot}, players: ${gameState.players.length}, '
+                'me: ${me?.username ?? "null"} (isYou: ${me?.isYou ?? "N/A"}), '
+                'currentPlayer: ${currentPlayer?.username ?? "null"} (id: ${gameState.currentPlayerId}), '
+                'isMyTurn: ${gameState.isMyTurn}, validActions: ${gameState.validActions}',
           );
           _lastGameState = gameState;
           _gameStateController.add(gameState);
@@ -558,7 +558,8 @@ class WebSocketService {
             userId: data['user_id'] as String? ?? '',
             username: username,
             message: data['message'] as String? ?? '',
-            timestamp: DateTime.tryParse(data['timestamp'] as String? ?? '') ??
+            timestamp:
+                DateTime.tryParse(data['timestamp'] as String? ?? '') ??
                 DateTime.now(),
           );
           _chatController.add(chat);

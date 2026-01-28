@@ -141,6 +141,103 @@ class Table:
                 return player
         return None
     
+    async def remove_player_during_hand(self, user_id: str) -> Optional[Player]:
+        """Remove a player during an active hand, properly handling game state.
+        
+        This method should be used when a player needs to be removed during an
+        active hand (e.g., grace period expiration). It ensures the hand properly
+        ends if needed.
+        
+        Args:
+            user_id: User ID to remove.
+            
+        Returns:
+            Removed player or None.
+        """
+        player = self.get_player_by_id(user_id)
+        if not player:
+            return None
+        
+        # If there's an active hand and the player is participating
+        if self.state != TableState.WAITING and player.is_active and not player.is_folded:
+            # Mark as folded
+            player.fold()
+            logger.info(f"Auto-folded {player.username} during hand removal")
+            
+            # Check if hand should end (only 1 or fewer active players remain)
+            active_players = [p for p in self.players.values() 
+                           if p.is_active and not p.is_folded and p.user_id != user_id]
+            
+            if len(active_players) <= 1:
+                # End the hand - the remaining player wins
+                await self._end_hand()
+        
+        # Remove from table
+        return self.remove_player(user_id)
+    
+    def validate_and_fix_hand_state(self) -> bool:
+        """Validate current hand state and fix if stuck.
+        
+        This is called on server startup to detect and fix hands that got stuck
+        due to server restarts or other issues.
+        
+        Returns:
+            True if the state was fixed (was invalid), False if state was valid.
+        """
+        if self.state == TableState.WAITING:
+            return False  # Already in valid waiting state
+        
+        # Check if we have a valid hand in progress
+        active_players = [p for p in self.players.values() 
+                        if p.is_active and not p.is_folded]
+        
+        # If fewer than 2 active players, hand shouldn't be in progress
+        if len(active_players) < 2:
+            logger.warning(
+                f"Table {self.table_id}: Invalid hand state detected. "
+                f"State={self.state.value}, active_players={len(active_players)}. "
+                f"Resetting to WAITING."
+            )
+            self._reset_hand_state()
+            return True
+        
+        # Check if betting round is valid
+        if self.current_betting_round:
+            current = self.current_betting_round.get_current_player()
+            if current is None:
+                # Betting round has no current player but hand is in progress
+                # This shouldn't happen - reset the hand
+                logger.warning(
+                    f"Table {self.table_id}: Betting round has no current player "
+                    f"but state={self.state.value}. Resetting to WAITING."
+                )
+                self._reset_hand_state()
+                return True
+        elif self.state not in (TableState.WAITING, TableState.HAND_COMPLETE, TableState.SHOWDOWN):
+            # Should have a betting round in these states
+            logger.warning(
+                f"Table {self.table_id}: No betting round but state={self.state.value}. "
+                f"Resetting to WAITING."
+            )
+            self._reset_hand_state()
+            return True
+        
+        return False
+    
+    def _reset_hand_state(self) -> None:
+        """Reset table to waiting state, clearing all hand-related data."""
+        # Clear hand state for all players
+        for player in self.players.values():
+            player.reset_for_new_hand()
+        
+        # Clear community cards and betting round
+        self.community_cards = []
+        self.current_betting_round = None
+        self.pot.reset()
+        self.state = TableState.WAITING
+        
+        logger.info(f"Table {self.table_id}: Hand state reset to WAITING")
+    
     def get_player(self, username: str) -> Optional[Player]:
         """Get player by username.
         

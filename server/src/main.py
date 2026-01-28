@@ -214,6 +214,13 @@ class GameServer:
                     self.chip_managers[table_id] = ChipManager(self.game_session.id)
                     self.chip_managers[table_id].set_table(table)
                     
+                    # Validate and fix any stuck hand states
+                    # This can happen if the server was restarted during an active hand
+                    if table.validate_and_fix_hand_state():
+                        # State was fixed, save the corrected state
+                        await game_store.save_table_state(table_id, table.to_dict())
+                        logger.info(f"Fixed stuck hand state for table {table_id}")
+                    
                     logger.info(f"Restored table {table_id}")
                 except Exception as e:
                     logger.error(f"Failed to restore table {table_id}: {e}")
@@ -790,21 +797,27 @@ async def _grace_period_cleanup(user_id: str, table_id: str):
             if player and player.is_disconnected:
                 username = player.username
                 
-                # Auto-fold if in active hand
-                if player.is_active and not player.is_folded:
-                    player.fold()
-                    logger.info(f"Auto-folded {username} after grace period")
-                
-                # Remove player from table entirely
-                # They can rejoin later at any seat
-                table.remove_player(user_id)
+                # Remove player from table, properly handling active hands
+                # This will auto-fold if needed and end the hand if only 1 player remains
+                await table.remove_player_during_hand(user_id)
                 logger.info(f"Removed {username} from table {table_id} after grace period expired")
+                
+                # Save updated table state
+                await game_store.save_table_state(table_id, table.to_dict())
                 
                 # Broadcast updated state to remaining players
                 for remaining_player in table.players.values():
                     state = table.get_state_for_player(remaining_player.user_id)
                     await server.send_to_user(
                         remaining_player.user_id,
+                        GameStateMessage(**state).model_dump()
+                    )
+                
+                # Also broadcast to spectators
+                for spectator_id in server.get_spectators(table_id):
+                    state = table.get_state_for_spectator()
+                    await server.send_to_user(
+                        spectator_id,
                         GameStateMessage(**state).model_dump()
                     )
         

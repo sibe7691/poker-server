@@ -239,15 +239,14 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen>
       );
     }
 
-    final activeTables =
-        _tables.where((t) => t.state != 'waiting').toList();
-    final waitingTables =
-        _tables.where((t) => t.state == 'waiting').toList();
+    final activeTables = _tables.where((t) => t.state != 'waiting').toList();
+    final waitingTables = _tables.where((t) => t.state == 'waiting').toList();
 
     return RefreshIndicator(
       onRefresh: () async {
-        final tables =
-            await ref.read(gameControllerProvider.notifier).fetchTables();
+        final tables = await ref
+            .read(gameControllerProvider.notifier)
+            .fetchTables();
         if (mounted) {
           setState(() {
             _tables = tables;
@@ -265,15 +264,6 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen>
                 onPressed: () => context.push('/create-table'),
               ),
             ),
-
-          // Stats bar
-          SliverToBoxAdapter(
-            child: _StatsBar(
-              totalTables: _tables.length,
-              activeTables: activeTables.length,
-              totalPlayers: _tables.fold(0, (sum, t) => sum + t.playerCount),
-            ),
-          ),
 
           // Active games section
           if (activeTables.isNotEmpty) ...[
@@ -517,10 +507,14 @@ class _LobbyHeader extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: PokerTheme.goldAccent.withValues(alpha: 0.2),
+                              color: PokerTheme.goldAccent.withValues(
+                                alpha: 0.2,
+                              ),
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
-                                color: PokerTheme.goldAccent.withValues(alpha: 0.5),
+                                color: PokerTheme.goldAccent.withValues(
+                                  alpha: 0.5,
+                                ),
                               ),
                             ),
                             child: const Text(
@@ -549,8 +543,7 @@ class _LobbyHeader extends StatelessWidget {
               ),
 
               // Create table button (for admins)
-              if (isAdmin)
-                _CreateTableButton(onPressed: onCreateTable),
+              if (isAdmin) _CreateTableButton(onPressed: onCreateTable),
             ],
           ),
         ],
@@ -623,7 +616,7 @@ class _HeaderMenuButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
         ),
         itemBuilder: (context) => [
-          PopupMenuItem<String>(
+          const PopupMenuItem<String>(
             value: 'profile',
             child: Row(
               children: [
@@ -632,8 +625,8 @@ class _HeaderMenuButton extends StatelessWidget {
                   color: Colors.white70,
                   size: 20,
                 ),
-                const SizedBox(width: 12),
-                const Text(
+                SizedBox(width: 12),
+                Text(
                   'Profile',
                   style: TextStyle(color: Colors.white),
                 ),
@@ -641,7 +634,7 @@ class _HeaderMenuButton extends StatelessWidget {
             ),
           ),
           const PopupMenuDivider(),
-          PopupMenuItem<String>(
+          const PopupMenuItem<String>(
             value: 'logout',
             child: Row(
               children: [
@@ -650,8 +643,8 @@ class _HeaderMenuButton extends StatelessWidget {
                   color: Colors.redAccent,
                   size: 20,
                 ),
-                const SizedBox(width: 12),
-                const Text(
+                SizedBox(width: 12),
+                Text(
                   'Log Out',
                   style: TextStyle(color: Colors.redAccent),
                 ),
@@ -966,10 +959,10 @@ class _ChipStack extends StatelessWidget {
             child: _Chip(color: Colors.red.shade700),
           ),
           // Top chip (gold)
-          Positioned(
+          const Positioned(
             bottom: 12,
             left: 1,
-            child: _Chip(color: const Color(0xFFFFD700)),
+            child: _Chip(color: Color(0xFFFFD700)),
           ),
           // Extra top chip (green)
           Positioned(
@@ -1022,7 +1015,7 @@ class _TablePatternPainter extends CustomPainter {
     // Draw subtle diagonal lines
     for (var i = -size.height; i < size.width + size.height; i += 30) {
       final path = Path()
-        ..moveTo(i.toDouble(), 0)
+        ..moveTo(i, 0)
         ..lineTo(i + size.height, size.height)
         ..lineTo(i + size.height + 10, size.height)
         ..lineTo(i + 10, 0)
@@ -1033,117 +1026,6 @@ class _TablePatternPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-// ============================================================================
-// STATS BAR
-// ============================================================================
-
-class _StatsBar extends StatelessWidget {
-  const _StatsBar({
-    required this.totalTables,
-    required this.activeTables,
-    required this.totalPlayers,
-  });
-
-  final int totalTables;
-  final int activeTables;
-  final int totalPlayers;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF163026).withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: PokerTheme.tableFelt.withValues(alpha: 0.2),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _StatItem(
-            value: totalTables.toString(),
-            label: 'Tables',
-            icon: Icons.grid_view_rounded,
-            color: PokerTheme.tableFelt,
-          ),
-          _StatDivider(),
-          _StatItem(
-            value: activeTables.toString(),
-            label: 'Live',
-            icon: Icons.play_circle_outline,
-            color: Colors.greenAccent,
-          ),
-          _StatDivider(),
-          _StatItem(
-            value: totalPlayers.toString(),
-            label: 'Players',
-            icon: Icons.people_outline,
-            color: PokerTheme.goldAccent,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatItem extends StatelessWidget {
-  const _StatItem({
-    required this.value,
-    required this.label,
-    required this.icon,
-    required this.color,
-  });
-
-  final String value;
-  final String label;
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, color: color, size: 20),
-        const SizedBox(width: 10),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.white.withValues(alpha: 0.5),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _StatDivider extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 36,
-      color: Colors.white.withValues(alpha: 0.1),
-    );
-  }
 }
 
 // ============================================================================
@@ -1290,7 +1172,7 @@ class _ModernTableCard extends ConsumerWidget {
       child: GestureDetector(
         onLongPressStart: isAdmin
             ? (details) =>
-                _showContextMenu(context, details.globalPosition, isAdmin)
+                  _showContextMenu(context, details.globalPosition, isAdmin)
             : null,
         child: Material(
           color: Colors.transparent,
@@ -1335,7 +1217,10 @@ class _ModernTableCard extends ConsumerWidget {
                 child: Row(
                   children: [
                     // Table visual
-                    _TableVisual(isLive: isLive, playerCount: table.playerCount),
+                    _TableVisual(
+                      isLive: isLive,
+                      playerCount: table.playerCount,
+                    ),
                     const SizedBox(width: 16),
 
                     // Table info
@@ -1363,7 +1248,9 @@ class _ModernTableCard extends ConsumerWidget {
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.greenAccent.withValues(alpha: 0.15),
+                                    color: Colors.greenAccent.withValues(
+                                      alpha: 0.15,
+                                    ),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Row(
@@ -1400,7 +1287,9 @@ class _ModernTableCard extends ConsumerWidget {
                               _TableInfoChip(
                                 icon: Icons.people_alt_outlined,
                                 label: table.playersDisplay,
-                                color: isFull ? Colors.redAccent : Colors.white70,
+                                color: isFull
+                                    ? Colors.redAccent
+                                    : Colors.white70,
                                 isFull: isFull,
                               ),
                               const SizedBox(width: 12),
@@ -1650,7 +1539,8 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Wait for an admin to create a table,\nor refresh to check for new games.',
+              'Wait for an admin to create a table,\n'
+              'or refresh to check for new games.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 15,

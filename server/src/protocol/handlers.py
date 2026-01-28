@@ -374,15 +374,33 @@ class MessageHandler:
             return ErrorMessage(message=str(e), code="JOIN_ERROR").model_dump()
     
     async def _handle_leave_table(self, user: AuthenticatedUser) -> dict:
-        """Handle leaving a table (both players and spectators)."""
+        """Handle leaving a table (both players and spectators).
+        
+        Players can always leave. If they're in an active hand, they will be
+        auto-folded before leaving.
+        """
         table_id = self.server.get_player_table(user.user_id)
         if not table_id:
             return ErrorMessage(message="Not at a table", code="NOT_AT_TABLE").model_dump()
         
         table = self.server.tables.get(table_id)
+        was_in_hand = False
         if table:
-            player = table.remove_player(user.user_id)
+            player = table.get_player_by_id(user.user_id)
             if player:
+                # Check if player will be auto-folded
+                was_in_hand = (
+                    table.state.value != "waiting" 
+                    and player.is_active 
+                    and not player.is_folded
+                )
+                
+                if was_in_hand:
+                    logger.info(f"Auto-folding {user.username} who is leaving table {table_id} during hand")
+                
+                # Remove player - this will auto-fold if in active hand
+                await table.remove_player_during_hand(user.user_id)
+                
                 await self.server.broadcast_to_table(
                     table_id,
                     PlayerLeftMessage(
@@ -392,6 +410,10 @@ class MessageHandler:
                 )
                 # Broadcast updated state
                 await self._broadcast_game_state(table_id)
+                
+                # Save table state
+                from src.state.game_store import game_store
+                await game_store.save_table_state(table_id, table.to_dict())
         
         # Remove from spectators if was spectating
         self.server.remove_spectator(user.user_id, table_id)
@@ -400,10 +422,14 @@ class MessageHandler:
         if user.user_id in self.server.user_tables:
             del self.server.user_tables[user.user_id]
         
-        return {"type": "left_table", "table_id": table_id}
+        return {"type": "left_table", "table_id": table_id, "was_folded": was_in_hand}
     
     async def _handle_stand_up(self, user: AuthenticatedUser) -> dict:
-        """Handle standing up from seat (become spectator)."""
+        """Handle standing up from seat (become spectator).
+        
+        Players can always stand up. If they're in an active hand, they will be
+        auto-folded before standing up.
+        """
         table_id = self.server.get_player_table(user.user_id)
         if not table_id:
             return ErrorMessage(message="Not at a table", code="NOT_AT_TABLE").model_dump()
@@ -419,15 +445,18 @@ class MessageHandler:
                 **table.get_state_for_spectator()
             ).model_dump()
         
-        # Check if in active hand
-        if table.state.value != "waiting" and player.is_active and not player.is_folded:
-            return ErrorMessage(
-                message="Cannot stand up during active hand. Fold first or wait for hand to finish.",
-                code="HAND_IN_PROGRESS"
-            ).model_dump()
+        # Check if player will be auto-folded
+        was_in_hand = (
+            table.state.value != "waiting" 
+            and player.is_active 
+            and not player.is_folded
+        )
         
-        # Remove from table
-        table.remove_player(user.user_id)
+        if was_in_hand:
+            logger.info(f"Auto-folding {user.username} who is standing up from table {table_id} during hand")
+        
+        # Remove from table (will auto-fold if in active hand)
+        await table.remove_player_during_hand(user.user_id)
         
         # Add as spectator
         self.server.add_spectator(user.user_id, table_id)
@@ -443,6 +472,10 @@ class MessageHandler:
         
         # Broadcast updated game state
         await self._broadcast_game_state(table_id)
+        
+        # Save table state
+        from src.state.game_store import game_store
+        await game_store.save_table_state(table_id, table.to_dict())
         
         logger.info(f"{user.username} stood up from table {table_id}")
         
