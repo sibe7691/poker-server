@@ -369,7 +369,6 @@ class _LobbyHeader extends StatelessWidget {
         ],
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Logo
           ClipRRect(
@@ -669,7 +668,7 @@ class _CreateTableCTA extends StatelessWidget {
           child: Container(
             height: 100,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
+              gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [

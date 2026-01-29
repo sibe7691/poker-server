@@ -389,9 +389,9 @@ class HoleCards extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cardWidth = isSmall ? 35.0 : 60.0;
-    final cardHeight = isSmall ? 49.0 : 84.0;
-    final overlap = isSmall ? 25.0 : 42.0;
+    final cardWidth = isSmall ? 30.0 : 50.0;
+    final cardHeight = isSmall ? 42.0 : 70.0;
+    final overlap = isSmall ? 20.0 : 35.0;
     // Extra height for tilted cards
     final extraHeight = cardHeight * 0.15;
 

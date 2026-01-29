@@ -40,15 +40,48 @@ class ActionButtonsPanel extends StatefulWidget {
 
 class _ActionButtonsPanelState extends State<ActionButtonsPanel> {
   final _debouncer = Debouncer();
-  bool _showRaiseMenu = false;
+  double _currentBetSliderValue = 0; // 0.0 to 1.0
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize slider to minimum raise value
+    _currentBetSliderValue = 0.0;
+  }
+
+  @override
+  void didUpdateWidget(ActionButtonsPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reset slider if min/max changed significantly
+    if (oldWidget.minRaise != widget.minRaise ||
+        oldWidget.maxBet != widget.maxBet) {
+      // Keep slider at same relative position, but clamp to valid range
+      _currentBetSliderValue = _currentBetSliderValue.clamp(0.0, 1.0);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final canRaiseOrBet =
+        widget.validActions.contains(PlayerAction.raise) ||
+        widget.validActions.contains(PlayerAction.bet);
+
+    // Calculate width as 25% of screen width, with minimum constraint
+    final screenWidth = MediaQuery.of(context).size.width;
+    final targetWidth = screenWidth * 0.25;
+    const minWidth = 320.0; // Minimum width to prevent it from being too small
+    const maxWidth = 450.0; // Maximum width to prevent it from being too large
+    final panelWidth = targetWidth.clamp(minWidth, maxWidth);
+
     return Container(
+      width: panelWidth,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: PokerTheme.surfaceDark.withValues(alpha: 0.95),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
+        ),
         boxShadow: const [
           BoxShadow(
             color: Colors.black45,
@@ -61,47 +94,11 @@ class _ActionButtonsPanelState extends State<ActionButtonsPanel> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Timer (if available)
-            if (widget.timeRemaining != null) ...[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  TurnTimer(
-                    timeRemaining: widget.timeRemaining!,
-                    totalTime: widget.turnTimeSeconds,
-                    usingTimeBank: widget.usingTimeBank,
-                    timeBank: widget.timeBank,
-                    size: 56,
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'YOUR TURN',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (widget.usingTimeBank)
-                        Text(
-                          'Time Bank: ${widget.timeBank.ceil()}s',
-                          style: const TextStyle(
-                            color: Colors.orange,
-                            fontSize: 11,
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
+            // Bet amount controls (only show if can raise/bet)
+            if (canRaiseOrBet) ...[
+              _buildBetAmountControls(),
+              const SizedBox(height: 16),
             ],
-            // Raise menu (if showing)
-            if (_showRaiseMenu) _buildRaiseMenu(),
-            const SizedBox(height: 12),
             // Action buttons row
             _buildActionButtons(),
           ],
@@ -112,6 +109,14 @@ class _ActionButtonsPanelState extends State<ActionButtonsPanel> {
 
   /// Whether this is a raise (someone has bet) vs a bet (first to act)
   bool get _isRaise => widget.validActions.contains(PlayerAction.raise);
+
+  /// Get current bet amount from slider value
+  int get _currentBetAmount {
+    if (widget.minRaise >= widget.maxBet) return widget.maxBet;
+    final range = widget.maxBet - widget.minRaise;
+    final amount = widget.minRaise + (_currentBetSliderValue * range).round();
+    return amount.clamp(widget.minRaise, widget.maxBet);
+  }
 
   /// Calculate raise amount for a given pot percentage
   int _calculateRaiseAmount(double percentage) {
@@ -125,98 +130,139 @@ class _ActionButtonsPanelState extends State<ActionButtonsPanel> {
     return raiseAmount.clamp(widget.minRaise, widget.maxBet);
   }
 
-  Widget _buildRaiseMenu() {
-    final action = _isRaise ? PlayerAction.raise : PlayerAction.bet;
-    final actionLabel = _isRaise ? 'Raise' : 'Bet';
-
+  Widget _buildBetAmountControls() {
     return Column(
       children: [
+        // Preset bet buttons row
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              '$actionLabel Amount',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
+            Expanded(
+              child: _PresetBetButton(
+                label: 'MIN',
+                onPressed: () {
+                  setState(() => _currentBetSliderValue = 0.0);
+                  HapticFeedback.lightImpact();
+                },
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.close, color: Colors.white54),
-              onPressed: () => setState(() => _showRaiseMenu = false),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _PresetBetButton(
+                label: '3/4',
+                onPressed: () {
+                  final amount = _calculateRaiseAmount(0.75);
+                  final normalized = widget.maxBet > widget.minRaise
+                      ? (amount - widget.minRaise) /
+                            (widget.maxBet - widget.minRaise)
+                      : 0.0;
+                  setState(
+                    () => _currentBetSliderValue = normalized.clamp(0.0, 1.0),
+                  );
+                  HapticFeedback.lightImpact();
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _PresetBetButton(
+                label: 'POT',
+                onPressed: () {
+                  final amount = _calculateRaiseAmount(1);
+                  final normalized = widget.maxBet > widget.minRaise
+                      ? (amount - widget.minRaise) /
+                            (widget.maxBet - widget.minRaise)
+                      : 0.0;
+                  setState(
+                    () => _currentBetSliderValue = normalized.clamp(0.0, 1.0),
+                  );
+                  HapticFeedback.lightImpact();
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _PresetBetButton(
+                label: 'MAX',
+                onPressed: () {
+                  setState(() => _currentBetSliderValue = 1.0);
+                  HapticFeedback.lightImpact();
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Bet amount display
+            Container(
+              width: 80,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+              decoration: BoxDecoration(
+                color: PokerTheme.surfaceLight,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    formatChips(_currentBetAmount),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Container(
+                    margin: const EdgeInsets.only(top: 4),
+                    height: 1,
+                    color: Colors.white30,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        // Percentage raise buttons
-        Row(
-          children: [
-            _raisePercentButton('33%', 0.33, action),
-            const SizedBox(width: 8),
-            _raisePercentButton('50%', 0.50, action),
-            const SizedBox(width: 8),
-            _raisePercentButton('75%', 0.75, action),
-            const SizedBox(width: 8),
-            _raisePercentButton('100%', 1, action),
-          ],
+        const SizedBox(height: 12),
+        // Slider
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            activeTrackColor: const Color(0xFF00BCD4), // Bright cyan
+            inactiveTrackColor: PokerTheme.surfaceLight,
+            thumbColor: const Color(0xFF00BCD4),
+            overlayColor: const Color(0xFF00BCD4).withValues(alpha: 0.2),
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+            trackHeight: 4,
+          ),
+          child: Slider(
+            value: _currentBetSliderValue,
+            onChanged: (value) {
+              setState(() {
+                _currentBetSliderValue = value;
+              });
+              HapticFeedback.selectionClick();
+            },
+          ),
         ),
       ],
     );
   }
 
-  Widget _raisePercentButton(
-    String label,
-    double percentage,
-    PlayerAction action,
-  ) {
-    final amount = _calculateRaiseAmount(percentage);
-    final isAllIn = amount >= widget.maxBet;
-
-    return Expanded(
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isAllIn
-              ? PokerTheme.chipRed
-              : PokerTheme.goldAccent.withValues(alpha: 0.9),
-          foregroundColor: isAllIn ? Colors.white : Colors.black,
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-        onPressed: () {
-          if (_debouncer.call()) {
-            HapticFeedback.mediumImpact();
-            widget.onAction(action, amount: amount);
-            setState(() => _showRaiseMenu = false);
-          }
-        },
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              isAllIn ? 'All In' : formatChips(amount),
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: isAllIn ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  /// Check if slider is at max position (all-in)
+  bool get _isAllIn => _currentBetSliderValue >= 0.99;
 
   Widget _buildActionButtons() {
+    final canRaiseOrBet =
+        widget.validActions.contains(PlayerAction.raise) ||
+        widget.validActions.contains(PlayerAction.bet);
+    final raiseAmount = canRaiseOrBet ? _currentBetAmount : 0;
+
+    // Determine raise button label - show "All In" when at max
+    String raiseLabel;
+    if (_isAllIn) {
+      raiseLabel = 'All In';
+    } else if (_isRaise) {
+      raiseLabel = 'Raise';
+    } else {
+      raiseLabel = 'Bet';
+    }
+
     return Row(
       children: [
         // Fold button
@@ -224,7 +270,8 @@ class _ActionButtonsPanelState extends State<ActionButtonsPanel> {
           Expanded(
             child: _ActionButton(
               label: 'Fold',
-              color: PokerTheme.chipRed,
+              color: const Color(0xFFFF6B9D), // Reddish-pink
+              textColor: Colors.black,
               onPressed: () {
                 if (_debouncer.call()) {
                   HapticFeedback.mediumImpact();
@@ -233,13 +280,14 @@ class _ActionButtonsPanelState extends State<ActionButtonsPanel> {
               },
             ),
           ),
-        const SizedBox(width: 8),
+        if (widget.validActions.contains(PlayerAction.fold))
+          const SizedBox(width: 8),
         // Check button
         if (widget.validActions.contains(PlayerAction.check))
           Expanded(
             child: _ActionButton(
               label: 'Check',
-              color: PokerTheme.chipBlue,
+              color: const Color(0xFF3A4A5C), // Dark grayish-blue
               onPressed: () {
                 if (_debouncer.call()) {
                   HapticFeedback.mediumImpact();
@@ -252,8 +300,9 @@ class _ActionButtonsPanelState extends State<ActionButtonsPanel> {
         if (widget.validActions.contains(PlayerAction.call))
           Expanded(
             child: _ActionButton(
-              label: 'Call ${formatChips(widget.callAmount)}',
-              color: PokerTheme.chipBlue,
+              label: 'Call',
+              amount: widget.callAmount,
+              color: const Color(0xFF3A4A5C), // Dark grayish-blue
               onPressed: () {
                 if (_debouncer.call()) {
                   HapticFeedback.mediumImpact();
@@ -262,34 +311,31 @@ class _ActionButtonsPanelState extends State<ActionButtonsPanel> {
               },
             ),
           ),
-        const SizedBox(width: 8),
-        // Raise/Bet button
-        if (widget.validActions.contains(PlayerAction.raise) ||
-            widget.validActions.contains(PlayerAction.bet))
+        if (widget.validActions.contains(PlayerAction.call))
+          const SizedBox(width: 8),
+        // Raise/Bet button (becomes "All In" when at max)
+        if (canRaiseOrBet)
           Expanded(
             child: _ActionButton(
-              label: widget.validActions.contains(PlayerAction.raise)
-                  ? 'Raise'
-                  : 'Bet',
-              color: PokerTheme.goldAccent,
-              textColor: Colors.black,
-              onPressed: () {
-                setState(() {
-                  _showRaiseMenu = !_showRaiseMenu;
-                });
-              },
-            ),
-          ),
-        // All-In button
-        if (widget.validActions.contains(PlayerAction.allIn))
-          Expanded(
-            child: _ActionButton(
-              label: 'All In',
-              color: PokerTheme.chipRed,
+              label: raiseLabel,
+              amount: raiseAmount,
+              color: _isAllIn
+                  ? PokerTheme
+                        .chipRed // Red for all-in
+                  : const Color(0xFF00BCD4), // Bright cyan for raise
+              textColor: _isAllIn ? Colors.white : Colors.black,
               onPressed: () {
                 if (_debouncer.call()) {
-                  HapticFeedback.heavyImpact();
-                  widget.onAction(PlayerAction.allIn);
+                  if (_isAllIn) {
+                    HapticFeedback.heavyImpact();
+                    widget.onAction(PlayerAction.allIn);
+                  } else {
+                    HapticFeedback.mediumImpact();
+                    final action = _isRaise
+                        ? PlayerAction.raise
+                        : PlayerAction.bet;
+                    widget.onAction(action, amount: raiseAmount);
+                  }
                 }
               },
             ),
@@ -305,32 +351,87 @@ class _ActionButton extends StatelessWidget {
     required this.color,
     required this.onPressed,
     this.textColor = Colors.white,
+    this.amount,
   });
   final String label;
   final Color color;
   final Color textColor;
+  final VoidCallback onPressed;
+  final int? amount;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 60, // Fixed height for consistent button sizing
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: textColor,
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 4,
+        ),
+        onPressed: onPressed,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: textColor,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            // Always reserve space for amount line to maintain consistent height
+            const SizedBox(height: 2),
+            Text(
+              amount != null ? formatChips(amount!) : '',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.normal,
+                color: textColor,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PresetBetButton extends StatelessWidget {
+  const _PresetBetButton({
+    required this.label,
+    required this.onPressed,
+  });
+  final String label;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        foregroundColor: textColor,
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        backgroundColor: PokerTheme.surfaceLight,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 10),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
-        elevation: 4,
+        elevation: 2,
       ),
       onPressed: onPressed,
       child: Text(
         label,
         style: const TextStyle(
           fontWeight: FontWeight.bold,
-          fontSize: 15,
+          fontSize: 13,
         ),
-        textAlign: TextAlign.center,
       ),
     );
   }

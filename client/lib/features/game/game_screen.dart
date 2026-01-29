@@ -383,9 +383,12 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 _buildSpectatorBanner(),
               // Main game area
               Expanded(
-                child: _gameState == null
-                    ? _buildLoadingState(controllerState)
-                    : PokerTable(
+                child: Stack(
+                  children: [
+                    if (_gameState == null)
+                      _buildLoadingState(controllerState)
+                    else
+                      PokerTable(
                         gameState: _gameState!,
                         onAction: _sendAction,
                         onSeatSelected: _gameState!.me == null
@@ -394,22 +397,32 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                         handResult: _currentHandResult,
                         chatMessages: _chatMessages,
                       ),
+                    // Action buttons (if it's your turn) - positioned at bottom right
+                    if (_gameState != null && _gameState!.isMyTurn)
+                      Positioned(
+                        bottom:
+                            16, // No need for extra space since FAB is on the left
+                        right: 16,
+                        child: ActionButtonsPanel(
+                          validActions: _gameState!.validActions,
+                          callAmount: _gameState!.callAmount,
+                          minRaise: _gameState!.minRaise,
+                          maxBet: _gameState!.me?.chips ?? 0,
+                          pot: _gameState!.pot,
+                          onAction: _sendAction,
+                          timeRemaining: _gameState!.timeRemaining,
+                          turnTimeSeconds: _gameState!.turnTimeSeconds,
+                          usingTimeBank: _gameState!.usingTimeBank,
+                          timeBank: _gameState!.me?.timeBank ?? 0,
+                        ),
+                      ),
+                  ],
+                ),
               ),
-              // Action buttons (if it's your turn)
-              if (_gameState != null && _gameState!.isMyTurn)
-                ActionButtonsPanel(
-                  validActions: _gameState!.validActions,
-                  callAmount: _gameState!.callAmount,
-                  minRaise: _gameState!.minRaise,
-                  maxBet: _gameState!.me?.chips ?? 0,
-                  pot: _gameState!.pot,
-                  onAction: _sendAction,
-                  timeRemaining: _gameState!.timeRemaining,
-                  turnTimeSeconds: _gameState!.turnTimeSeconds,
-                  usingTimeBank: _gameState!.usingTimeBank,
-                  timeBank: _gameState!.me?.timeBank ?? 0,
-                )
-              else if (_gameState != null && _gameState!.isInProgress)
+              // Waiting indicator (if it's not your turn)
+              if (_gameState != null &&
+                  !_gameState!.isMyTurn &&
+                  _gameState!.isInProgress)
                 WaitingIndicator(
                   currentPlayerName: _gameState!.currentPlayer?.username,
                   showAutoAction: _shouldShowAutoAction(),
@@ -427,7 +440,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           ),
         ),
       ),
-      // Chat FAB
+      // Chat FAB - positioned at bottom left
       floatingActionButton: _gameState != null
           ? FloatingActionButton(
               mini: true,
@@ -445,6 +458,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               ),
             )
           : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
     );
   }
 

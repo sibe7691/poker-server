@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 // Fire-and-forget futures are intentional for animations
 // ignore_for_file: discarded_futures
 
@@ -9,6 +8,7 @@ import 'package:poker_app/core/utils.dart';
 import 'package:poker_app/models/card.dart';
 import 'package:poker_app/models/player.dart';
 import 'package:poker_app/widgets/playing_card.dart';
+import 'package:poker_app/widgets/turn_timer_progress_bar.dart';
 
 /// Data class to hold winner display info
 class WinnerDisplayInfo {
@@ -43,6 +43,10 @@ class PlayerSeat extends StatefulWidget {
     this.chatBubble,
     this.gamePhase = GamePhase.waiting,
     this.showdownCards,
+    this.timeRemaining,
+    this.turnTimeSeconds = 30,
+    this.usingTimeBank = false,
+    this.timeBank = 0,
   });
   final Player player;
   final bool isCurrentTurn;
@@ -50,11 +54,19 @@ class PlayerSeat extends StatefulWidget {
   final bool isBigBlind;
   final PlayerAction? lastAction;
   final WinnerDisplayInfo? winnerInfo;
+
   /// Chat bubble to display above the player
   final ChatBubbleInfo? chatBubble;
   final GamePhase gamePhase;
+
   /// Cards revealed during showdown (from hand result)
   final List<PlayingCard>? showdownCards;
+
+  /// Timer info for turn timer progress bar
+  final double? timeRemaining;
+  final int turnTimeSeconds;
+  final bool usingTimeBank;
+  final double timeBank;
 
   @override
   State<PlayerSeat> createState() => _PlayerSeatState();
@@ -116,15 +128,16 @@ class _PlayerSeatState extends State<PlayerSeat> with TickerProviderStateMixin {
         curve: Curves.easeOut,
       ),
     );
-    _chatSlideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _chatAnimationController,
-        curve: Curves.easeOut,
-      ),
-    );
+    _chatSlideAnimation =
+        Tween<Offset>(
+          begin: const Offset(0, 0.3),
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(
+            parent: _chatAnimationController,
+            curve: Curves.easeOut,
+          ),
+        );
 
     // Show action if already set
     if (widget.lastAction != null) {
@@ -248,7 +261,7 @@ class _PlayerSeatState extends State<PlayerSeat> with TickerProviderStateMixin {
     return Opacity(
       opacity: _isOutOfChips ? 0.5 : 1.0,
       child: SizedBox(
-        width: 120,
+        width: 100,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -261,9 +274,21 @@ class _PlayerSeatState extends State<PlayerSeat> with TickerProviderStateMixin {
               _buildCards()
             else if (shouldShowCards && widget.player.isFolded)
               _buildFoldedCards(),
-            if (shouldShowCards) const SizedBox(height: 4),
+            if (shouldShowCards) const SizedBox(height: 3),
             // Player info container with action label overlay
             _buildPlayerInfoWithActionOverlay(context),
+            // Turn timer progress bar (only for current player's turn and if it's you)
+            if (widget.isCurrentTurn &&
+                widget.player.isYou &&
+                widget.timeRemaining != null) ...[
+              const SizedBox(height: 4),
+              TurnTimerProgressBar(
+                timeRemaining: widget.timeRemaining!,
+                totalTime: widget.turnTimeSeconds,
+                usingTimeBank: widget.usingTimeBank,
+                timeBank: widget.timeBank,
+              ),
+            ],
             // Note: Bet chips are now rendered separately in PokerTable
             // to position them on the table surface
           ],
@@ -476,7 +501,7 @@ class _PlayerSeatState extends State<PlayerSeat> with TickerProviderStateMixin {
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -520,7 +545,7 @@ class _PlayerSeatState extends State<PlayerSeat> with TickerProviderStateMixin {
                   style: TextStyle(
                     color: widget.player.isFolded ? Colors.grey : Colors.white,
                     fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                    fontSize: 12,
                   ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
@@ -529,11 +554,11 @@ class _PlayerSeatState extends State<PlayerSeat> with TickerProviderStateMixin {
               if (!widget.player.isConnected)
                 const Padding(
                   padding: EdgeInsets.only(left: 4),
-                  child: Icon(Icons.wifi_off, size: 14, color: Colors.orange),
+                  child: Icon(Icons.wifi_off, size: 12, color: Colors.orange),
                 ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           // Chip count or status
           if (_isOutOfChips)
             Row(
@@ -576,7 +601,7 @@ class _PlayerSeatState extends State<PlayerSeat> with TickerProviderStateMixin {
                         ? PokerTheme.chipRed
                         : PokerTheme.goldAccent,
                     fontWeight: FontWeight.bold,
-                    fontSize: 13,
+                    fontSize: 11,
                   ),
                 ),
               ],

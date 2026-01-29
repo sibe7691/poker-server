@@ -140,8 +140,8 @@ class _PokerTableState extends ConsumerState<PokerTable> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final tableWidth = constraints.maxWidth * 0.85;
-        final tableHeight = constraints.maxHeight * 0.5;
+        final tableWidth = constraints.maxWidth * 0.70;
+        final tableHeight = constraints.maxHeight * 0.40;
 
         return Stack(
           children: [
@@ -181,7 +181,7 @@ class _PokerTableState extends ConsumerState<PokerTable> {
         borderRadius: BorderRadius.all(
           Radius.elliptical(width / 2, height / 2),
         ),
-        border: Border.all(color: const Color(0xFF5D4037), width: 12),
+        border: Border.all(color: const Color(0xFF5D4037), width: 8),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.5),
@@ -244,9 +244,9 @@ class _PokerTableState extends ConsumerState<PokerTable> {
     final centerX = constraints.maxWidth / 2;
     final centerY = constraints.maxHeight / 2;
 
-    // Oval dimensions for seat placement
-    final radiusX = constraints.maxWidth * 0.42;
-    final radiusY = constraints.maxHeight * 0.38;
+    // Oval dimensions for seat placement (reduced for better fit)
+    final radiusX = constraints.maxWidth * 0.35;
+    final radiusY = constraints.maxHeight * 0.30;
 
     // Use the table's configured max players
     final maxSeats = widget.gameState.maxPlayers;
@@ -269,9 +269,9 @@ class _PokerTableState extends ConsumerState<PokerTable> {
       final player = seatMap[i];
 
       // Clamp position to keep widget within bounds
-      const widgetWidth = 120.0;
-      // Cards (84 for current player, 49 for others) + spacing (4) + info (~50)
-      const widgetHeight = 115.0;
+      const widgetWidth = 100.0;
+      // Cards (smaller: 70 for current player, 42 for others) + spacing (3) + info (~35) + timer bar (6)
+      const widgetHeight = 95.0;
       final clampedX = (x - widgetWidth / 2).clamp(
         0.0,
         constraints.maxWidth - widgetWidth,
@@ -321,6 +321,14 @@ class _PokerTableState extends ConsumerState<PokerTable> {
                         )
                       : null,
                   showdownCards: showdownCards,
+                  // Timer props - only pass if it's the current player's turn
+                  timeRemaining:
+                      widget.gameState.currentPlayerId == player.userId
+                      ? widget.gameState.timeRemaining
+                      : null,
+                  turnTimeSeconds: widget.gameState.turnTimeSeconds,
+                  usingTimeBank: widget.gameState.usingTimeBank,
+                  timeBank: player.timeBank,
                 )
               : EmptySeat(
                   seatNumber: i + 1,
