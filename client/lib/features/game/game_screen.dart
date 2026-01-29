@@ -311,9 +311,13 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       chatMessagesProvider,
       (previous, next) {
         next.whenData((ChatMessage message) {
+          final currentUsername = ref.read(currentUsernameProvider);
           setState(() {
             _chatMessages.add(message);
-            _unreadChatCount++;
+            // Only increment unread count for messages from other players
+            if (message.username != currentUsername) {
+              _unreadChatCount++;
+            }
           });
         });
       },
@@ -677,6 +681,21 @@ class _ChatSheetState extends State<_ChatSheet> {
   final _focusNode = FocusNode();
 
   @override
+  void initState() {
+    super.initState();
+    // Scroll to bottom after the widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToBottom();
+    });
+  }
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients && widget.messages.isNotEmpty) {
+      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(
@@ -720,6 +739,22 @@ class _ChatSheetState extends State<_ChatSheet> {
                     '${widget.messages.length} messages',
                     style: const TextStyle(color: Colors.white38, fontSize: 12),
                   ),
+                ],
+              ),
+            ),
+            const Divider(color: Colors.white12, height: 1),
+            // Quick reaction buttons
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _ReactionButton(emoji: '👍', onTap: () => _send('👍')),
+                  _ReactionButton(emoji: '😂', onTap: () => _send('😂')),
+                  _ReactionButton(emoji: '🔥', onTap: () => _send('🔥')),
+                  _ReactionButton(emoji: '😮', onTap: () => _send('😮')),
+                  _ReactionButton(emoji: '👏', onTap: () => _send('👏')),
+                  _ReactionButton(emoji: '💀', onTap: () => _send('💀')),
                 ],
               ),
             ),
@@ -904,6 +939,15 @@ class _ChatSheetState extends State<_ChatSheet> {
   }
 }
 
+/// Reaction emojis that should be displayed as jumbomoji
+const kReactionEmojis = ['👍', '😂', '🔥', '😮', '👏', '💀'];
+
+/// Check if a message is a single reaction emoji (jumbomoji)
+bool isJumbomoji(String message) {
+  final trimmed = message.trim();
+  return kReactionEmojis.contains(trimmed);
+}
+
 /// Individual chat message tile
 class _ChatMessageTile extends StatelessWidget {
   const _ChatMessageTile({required this.message});
@@ -911,6 +955,8 @@ class _ChatMessageTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isJumbo = isJumbomoji(message.message);
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -969,10 +1015,17 @@ class _ChatMessageTile extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  message.message,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                ),
+                // Show jumbomoji for single reaction emojis
+                if (isJumbo)
+                  Text(
+                    message.message.trim(),
+                    style: const TextStyle(fontSize: 48),
+                  )
+                else
+                  Text(
+                    message.message,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                  ),
               ],
             ),
           ),
@@ -1000,6 +1053,36 @@ class _ChatMessageTile extends StatelessWidget {
   String _formatTime(DateTime timestamp) {
     return '${timestamp.hour.toString().padLeft(2, '0')}:'
         '${timestamp.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+/// Quick reaction emoji button
+class _ReactionButton extends StatelessWidget {
+  const _ReactionButton({required this.emoji, required this.onTap});
+  final String emoji;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: PokerTheme.surfaceLight,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white12),
+          ),
+          child: Text(
+            emoji,
+            style: const TextStyle(fontSize: 20),
+          ),
+        ),
+      ),
+    );
   }
 }
 

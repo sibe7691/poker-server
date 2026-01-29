@@ -30,6 +30,15 @@ class ChatBubbleInfo {
   final DateTime timestamp;
 }
 
+/// Reaction emojis that should be displayed as jumbomoji
+const kReactionEmojis = ['👍', '😂', '🔥', '😮', '👏', '💀'];
+
+/// Check if a message is a single reaction emoji (jumbomoji)
+bool isJumbomoji(String message) {
+  final trimmed = message.trim();
+  return kReactionEmojis.contains(trimmed);
+}
+
 /// A player seat widget showing player info, chips, and cards
 class PlayerSeat extends StatefulWidget {
   const PlayerSeat({
@@ -298,53 +307,65 @@ class _PlayerSeatState extends State<PlayerSeat> with TickerProviderStateMixin {
   }
 
   Widget _buildChatBubble() {
+    final isJumbo = isJumbomoji(_displayedChat!.message);
+
     return SlideTransition(
       position: _chatSlideAnimation,
       child: FadeTransition(
         opacity: _chatFadeAnimation,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Chat bubble
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              constraints: const BoxConstraints(maxWidth: 140),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.white,
-                    Colors.grey.shade100,
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.25),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
+        child: isJumbo
+            // Jumbomoji: large emoji without bubble
+            ? Text(
+                _displayedChat!.message.trim(),
+                style: const TextStyle(fontSize: 48),
+              )
+            // Regular message: chat bubble with pointer
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Chat bubble
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    constraints: const BoxConstraints(maxWidth: 140),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.white,
+                          Colors.grey.shade100,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.25),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      _displayedChat!.message,
+                      style: const TextStyle(
+                        color: Colors.black87,
+                        fontSize: 12,
+                        height: 1.3,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  // Speech bubble pointer
+                  CustomPaint(
+                    size: const Size(16, 8),
+                    painter: _BubblePointerPainter(),
                   ),
                 ],
               ),
-              child: Text(
-                _displayedChat!.message,
-                style: const TextStyle(
-                  color: Colors.black87,
-                  fontSize: 12,
-                  height: 1.3,
-                ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            // Speech bubble pointer
-            CustomPaint(
-              size: const Size(16, 8),
-              painter: _BubblePointerPainter(),
-            ),
-          ],
-        ),
       ),
     );
   }
