@@ -15,13 +15,29 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLogin = true;
   bool _obscurePassword = true;
 
   @override
+  void initState() {
+    super.initState();
+    _loadLastLoginEmail();
+  }
+
+  Future<void> _loadLastLoginEmail() async {
+    final authService = ref.read(authServiceProvider);
+    final lastEmail = await authService.getLastLoginEmail();
+    if (lastEmail != null && mounted) {
+      _emailController.text = lastEmail;
+    }
+  }
+
+  @override
   void dispose() {
+    _emailController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -31,14 +47,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final authNotifier = ref.read(authProvider.notifier);
-    final username = _usernameController.text.trim();
+    final email = _emailController.text.trim();
     final password = _passwordController.text;
 
     bool success;
     if (_isLogin) {
-      success = await authNotifier.login(username, password);
+      success = await authNotifier.login(email, password);
     } else {
-      success = await authNotifier.register(username, password);
+      final username = _usernameController.text.trim();
+      success = await authNotifier.register(username, email, password);
     }
 
     if (success && mounted) {
@@ -138,24 +155,47 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               // Toggle login/register
               _buildToggle(),
               const SizedBox(height: 24),
-              // Username field
+              // Email field (for both login and register)
               TextFormField(
-                controller: _usernameController,
+                controller: _emailController,
                 decoration: const InputDecoration(
-                  labelText: 'Username',
-                  prefixIcon: Icon(Icons.person_outline),
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.email_outlined),
                 ),
+                keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Please enter a username';
+                    return 'Please enter your email';
                   }
-                  if (value.trim().length < 3) {
-                    return 'Username must be at least 3 characters';
+                  if (!_isValidEmail(value.trim())) {
+                    return 'Please enter a valid email';
                   }
                   return null;
                 },
               ),
+              // Username field (only for register)
+              if (!_isLogin) ...[
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _usernameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Username',
+                    prefixIcon: Icon(Icons.person_outline),
+                    helperText: 'Displayed to other players',
+                  ),
+                  textInputAction: TextInputAction.next,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter a username';
+                    }
+                    if (value.trim().length < 3) {
+                      return 'Username must be at least 3 characters';
+                    }
+                    return null;
+                  },
+                ),
+              ],
               const SizedBox(height: 16),
               // Password field
               TextFormField(
@@ -187,7 +227,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   return null;
                 },
               ),
-              const SizedBox(height: 8),
+              // Forgot password link (only for login)
+              if (_isLogin)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => context.push('/forgot-password'),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    child: Text(
+                      'Forgot Password?',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
               // Error message
               if (authState.error != null)
                 Padding(
@@ -236,6 +293,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
       ),
     );
+  }
+
+  bool _isValidEmail(String email) {
+    return RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
   }
 
   Widget _buildToggle() {

@@ -18,7 +18,7 @@ from src.state.session_store import session_store, PlayerSession
 from src.state.game_store import game_store
 from src.state.user_store import user_store
 from src.auth.middleware import AuthenticatedUser, auth_middleware
-from src.auth.jwt_handler import verify_token, refresh_access_token, TokenError
+from src.auth.jwt_handler import verify_token, refresh_access_token, create_refresh_token, TokenError
 from src.auth.roles import Role
 from src.game.table import Table
 from src.game.player import Player
@@ -40,11 +40,12 @@ logger = get_logger(__name__)
 # Pydantic models for HTTP API
 class RegisterRequest(BaseModel):
     username: str
+    email: str
     password: str
 
 
 class LoginRequest(BaseModel):
-    username: str
+    email: str
     password: str
 
 
@@ -54,6 +55,7 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user_id: str
     username: str
+    email: str
     role: str
 
 
@@ -63,7 +65,30 @@ class RefreshRequest(BaseModel):
 
 class RefreshResponse(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
+    user_id: str
+    username: str
+    email: str
+    role: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ForgotPasswordResponse(BaseModel):
+    message: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+class ResetPasswordResponse(BaseModel):
+    success: bool
+    message: str
 
 
 class StandingItem(BaseModel):
@@ -505,13 +530,14 @@ async def health_check():
 async def register(request: RegisterRequest):
     """Register a new user."""
     try:
-        tokens = await user_store.register(request.username, request.password)
+        tokens = await user_store.register(request.username, request.email, request.password)
         user = await user_store.get_user(request.username)
         return TokenResponse(
             access_token=tokens.access_token,
             refresh_token=tokens.refresh_token,
             user_id=user.id,
             username=user.username,
+            email=user.email,
             role=user.role.value,
         )
     except ValueError as e:
@@ -520,15 +546,16 @@ async def register(request: RegisterRequest):
 
 @app.post("/api/login", response_model=TokenResponse)
 async def login(request: LoginRequest):
-    """Login and get tokens."""
+    """Login with email and get tokens."""
     try:
-        tokens = await user_store.login(request.username, request.password)
-        user = await user_store.get_user(request.username)
+        tokens = await user_store.login(request.email, request.password)
+        user = await user_store.get_user_by_email(request.email)
         return TokenResponse(
             access_token=tokens.access_token,
             refresh_token=tokens.refresh_token,
             user_id=user.id,
             username=user.username,
+            email=user.email,
             role=user.role.value,
         )
     except ValueError as e:
@@ -537,12 +564,68 @@ async def login(request: LoginRequest):
 
 @app.post("/api/refresh", response_model=RefreshResponse)
 async def refresh_token(request: RefreshRequest):
-    """Refresh access token."""
+    """Refresh access token and return user info."""
     try:
-        new_token = refresh_access_token(request.refresh_token)
-        return RefreshResponse(access_token=new_token)
+        # Verify the refresh token and get user info from it
+        payload = verify_token(request.refresh_token, expected_type="refresh")
+        
+        # Get the user to ensure they still exist and get current data
+        user = await user_store.get_user_by_id(payload.user_id)
+        if user is None:
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        # Generate new tokens
+        new_access_token = refresh_access_token(request.refresh_token)
+        new_refresh_token = create_refresh_token(user.id, user.username, user.role)
+        
+        return RefreshResponse(
+            access_token=new_access_token,
+            refresh_token=new_refresh_token,
+            user_id=user.id,
+            username=user.username,
+            email=user.email,
+            role=user.role.value,
+        )
     except TokenError as e:
         raise HTTPException(status_code=401, detail=str(e))
+
+
+@app.post("/api/forgot-password", response_model=ForgotPasswordResponse)
+async def forgot_password(request: ForgotPasswordRequest):
+    """Request a password reset email.
+    
+    Note: In production, this would send an email with the reset link.
+    For now, it always returns success to not reveal if email exists.
+    """
+    # Generate reset token (returns None if email doesn't exist, but we don't reveal that)
+    reset_token = await user_store.request_password_reset(request.email)
+    
+    if reset_token:
+        # In production, send email here with reset link
+        # For development/testing, log the token
+        logger.info(f"Password reset token for {request.email}: {reset_token}")
+    
+    # Always return success message to not reveal if email exists
+    return ForgotPasswordResponse(
+        message="If an account exists with this email, you will receive a password reset link."
+    )
+
+
+@app.post("/api/reset-password", response_model=ResetPasswordResponse)
+async def reset_password(request: ResetPasswordRequest):
+    """Reset password using a reset token."""
+    if len(request.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    
+    success = await user_store.reset_password(request.token, request.new_password)
+    
+    if not success:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+    
+    return ResetPasswordResponse(
+        success=True,
+        message="Password has been reset successfully. You can now log in with your new password."
+    )
 
 
 # Game info endpoints

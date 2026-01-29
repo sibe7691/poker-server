@@ -62,12 +62,20 @@ class AuthService {
   }
 
   /// Register a new user
-  Future<AuthState> register(String username, String password) async {
+  Future<AuthState> register(
+    String username,
+    String email,
+    String password,
+  ) async {
     try {
       final response = await _client.post(
         Uri.parse('${ApiConstants.baseUrl}${ApiConstants.registerEndpoint}'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'username': username, 'password': password}),
+        body: jsonEncode({
+          'username': username,
+          'email': email,
+          'password': password,
+        }),
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -82,17 +90,19 @@ class AuthService {
     }
   }
 
-  /// Login with existing credentials
-  Future<AuthState> login(String username, String password) async {
+  /// Login with email and password
+  Future<AuthState> login(String email, String password) async {
     try {
       final response = await _client.post(
         Uri.parse('${ApiConstants.baseUrl}${ApiConstants.loginEndpoint}'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'username': username, 'password': password}),
+        body: jsonEncode({'email': email, 'password': password}),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
+        // Save the login email (persists after logout for pre-filling)
+        await _write(StorageKeys.lastLoginEmail, email);
         return _handleAuthResponse(data);
       } else {
         final error = _parseError(response);
@@ -103,11 +113,69 @@ class AuthService {
     }
   }
 
+  /// Request password reset email
+  Future<({bool success, String message})> forgotPassword(String email) async {
+    try {
+      final response = await _client.post(
+        Uri.parse(
+          '${ApiConstants.baseUrl}${ApiConstants.forgotPasswordEndpoint}',
+        ),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return (
+          success: true,
+          message:
+              data['message'] as String? ??
+              'Check your email for reset instructions.',
+        );
+      } else {
+        final error = _parseError(response);
+        return (success: false, message: error);
+      }
+    } on Exception catch (e) {
+      return (success: false, message: 'Connection error: $e');
+    }
+  }
+
+  /// Reset password with token
+  Future<({bool success, String message})> resetPassword(
+    String token,
+    String newPassword,
+  ) async {
+    try {
+      final response = await _client.post(
+        Uri.parse(
+          '${ApiConstants.baseUrl}${ApiConstants.resetPasswordEndpoint}',
+        ),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'token': token, 'new_password': newPassword}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return (
+          success: data['success'] as bool? ?? true,
+          message: data['message'] as String? ?? 'Password reset successfully.',
+        );
+      } else {
+        final error = _parseError(response);
+        return (success: false, message: error);
+      }
+    } on Exception catch (e) {
+      return (success: false, message: 'Connection error: $e');
+    }
+  }
+
   /// Refresh the access token using stored user info
   Future<AuthState?> refreshTokenWithUserInfo(
     String refreshToken,
     String userId,
     String username, {
+    String? email,
     String? role,
   }) async {
     try {
@@ -144,6 +212,7 @@ class AuthService {
           username: data['username'] as String? ?? username,
           accessToken: newAccessToken,
           refreshToken: newRefresh,
+          email: data['email'] as String? ?? email,
           role: data['role'] as String? ?? role,
         );
 
@@ -152,6 +221,9 @@ class AuthService {
         await _write(StorageKeys.username, state.username!);
         await _write(StorageKeys.accessToken, state.accessToken!);
         await _write(StorageKeys.refreshToken, state.refreshToken!);
+        if (state.email != null) {
+          await _write(StorageKeys.email, state.email!);
+        }
         if (state.role != null) {
           await _write(StorageKeys.role, state.role!);
         }
@@ -196,6 +268,7 @@ class AuthService {
       username: data['username'] as String,
       accessToken: data['access_token'] as String,
       refreshToken: data['refresh_token'] as String,
+      email: data['email'] as String?,
       role: data['role'] as String?,
     );
 
@@ -204,6 +277,11 @@ class AuthService {
     await _write(StorageKeys.username, state.username!);
     await _write(StorageKeys.accessToken, state.accessToken!);
     await _write(StorageKeys.refreshToken, state.refreshToken!);
+    if (state.email != null) {
+      await _write(StorageKeys.email, state.email!);
+      // Also save as last login email (persists after logout)
+      await _write(StorageKeys.lastLoginEmail, state.email!);
+    }
     if (state.role != null) {
       await _write(StorageKeys.role, state.role!);
     }
@@ -215,6 +293,11 @@ class AuthService {
     return state;
   }
 
+  /// Get the last successfully logged in email (persists after logout)
+  Future<String?> getLastLoginEmail() async {
+    return _read(StorageKeys.lastLoginEmail);
+  }
+
   /// Load saved auth state from storage
   Future<AuthState> loadSavedAuth() async {
     try {
@@ -224,6 +307,7 @@ class AuthService {
 
       final userId = await _read(StorageKeys.userId);
       final username = await _read(StorageKeys.username);
+      final email = await _read(StorageKeys.email);
       final accessToken = await _read(StorageKeys.accessToken);
       final refreshToken = await _read(StorageKeys.refreshToken);
       final role = await _read(StorageKeys.role);
@@ -231,7 +315,7 @@ class AuthService {
       if (kIsWeb) {
         debugPrint(
           'Web: userId=${userId != null}, username=${username != null}, '
-          'accessToken=${accessToken != null}, '
+          'email=${email != null}, accessToken=${accessToken != null}, '
           'refreshToken=${refreshToken != null}, role=$role',
         );
       }
@@ -248,6 +332,7 @@ class AuthService {
           refreshToken,
           userId,
           username,
+          email: email,
           role: role,
         );
         if (refreshed != null) {
@@ -266,6 +351,7 @@ class AuthService {
           username: username,
           accessToken: accessToken,
           refreshToken: refreshToken,
+          email: email,
           role: role,
         );
       } else {
@@ -287,6 +373,7 @@ class AuthService {
   Future<void> logout() async {
     await _delete(StorageKeys.userId);
     await _delete(StorageKeys.username);
+    await _delete(StorageKeys.email);
     await _delete(StorageKeys.accessToken);
     await _delete(StorageKeys.refreshToken);
     await _delete(StorageKeys.role);

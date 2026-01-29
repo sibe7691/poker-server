@@ -5,6 +5,7 @@ class AuthState extends Equatable {
   const AuthState({
     this.userId,
     this.username,
+    this.email,
     this.role,
     this.accessToken,
     this.refreshToken,
@@ -21,11 +22,13 @@ class AuthState extends Equatable {
     required String username,
     required String accessToken,
     required String refreshToken,
+    String? email,
     String? role,
   }) {
     return AuthState(
       userId: userId,
       username: username,
+      email: email,
       role: role,
       accessToken: accessToken,
       refreshToken: refreshToken,
@@ -33,6 +36,7 @@ class AuthState extends Equatable {
   }
   final String? userId;
   final String? username;
+  final String? email;
   final String? role;
   final String? accessToken;
   final String? refreshToken;
@@ -48,6 +52,7 @@ class AuthState extends Equatable {
   AuthState copyWith({
     String? userId,
     String? username,
+    String? email,
     String? role,
     String? accessToken,
     String? refreshToken,
@@ -57,6 +62,7 @@ class AuthState extends Equatable {
     return AuthState(
       userId: userId ?? this.userId,
       username: username ?? this.username,
+      email: email ?? this.email,
       role: role ?? this.role,
       accessToken: accessToken ?? this.accessToken,
       refreshToken: refreshToken ?? this.refreshToken,
@@ -78,6 +84,7 @@ class AuthState extends Equatable {
   List<Object?> get props => [
     userId,
     username,
+    email,
     role,
     accessToken,
     refreshToken,

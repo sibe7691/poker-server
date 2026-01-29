@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:poker_app/core/theme.dart';
+import 'package:poker_app/features/auth/forgot_password_screen.dart';
 import 'package:poker_app/features/auth/login_screen.dart';
 import 'package:poker_app/features/game/game_screen.dart';
 import 'package:poker_app/features/lobby/create_table_screen.dart';
@@ -132,6 +133,7 @@ class _PokerAppState extends ConsumerState<PokerApp> {
         final isAuthenticated = ref.read(isAuthenticatedProvider);
         final location = state.matchedLocation;
         final isLoginRoute = location == '/login';
+        final isForgotPasswordRoute = location == '/forgot-password';
         final isRootRoute = location == '/';
 
         if (kIsWeb) {
@@ -141,7 +143,8 @@ class _PokerAppState extends ConsumerState<PokerApp> {
           );
         }
 
-        if (!isAuthenticated && !isLoginRoute) {
+        // Allow unauthenticated access to login and forgot-password
+        if (!isAuthenticated && !isLoginRoute && !isForgotPasswordRoute) {
           if (kIsWeb) {
             debugPrint('Router: Redirecting to /login (not authenticated)');
           }
@@ -163,6 +166,13 @@ class _PokerAppState extends ConsumerState<PokerApp> {
           pageBuilder: (context, state) => _buildFadeTransitionPage(
             state: state,
             child: const LoginScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/forgot-password',
+          pageBuilder: (context, state) => _buildFadeTransitionPage(
+            state: state,
+            child: const ForgotPasswordScreen(),
           ),
         ),
         GoRoute(

@@ -7,6 +7,8 @@ class ApiConstants {
   static const String registerEndpoint = '/api/register';
   static const String loginEndpoint = '/api/login';
   static const String refreshEndpoint = '/api/refresh';
+  static const String forgotPasswordEndpoint = '/api/forgot-password';
+  static const String resetPasswordEndpoint = '/api/reset-password';
   static const String tablesEndpoint = '/api/tables';
   static const String standingsEndpoint = '/api/standings';
 }
@@ -99,5 +101,8 @@ class StorageKeys {
   static const String refreshToken = 'refresh_token';
   static const String userId = 'user_id';
   static const String username = 'username';
+  static const String email = 'email';
   static const String role = 'role';
+  // Persists after logout for pre-filling login form
+  static const String lastLoginEmail = 'last_login_email';
 }

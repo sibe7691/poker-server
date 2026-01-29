@@ -12,6 +12,7 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
     final username = authState.username ?? 'Unknown';
+    final email = authState.email ?? 'Not set';
     final userId = authState.userId ?? 'Unknown';
     final role = authState.role ?? 'player';
     final isAdmin = authState.isAdmin;
@@ -32,6 +33,7 @@ class ProfileScreen extends ConsumerWidget {
                       const SizedBox(height: 32),
                       _ProfileInfoCard(
                         username: username,
+                        email: email,
                         userId: userId,
                         role: role,
                         isAdmin: isAdmin,
@@ -196,12 +198,14 @@ class _ProfileAvatar extends StatelessWidget {
 class _ProfileInfoCard extends StatelessWidget {
   const _ProfileInfoCard({
     required this.username,
+    required this.email,
     required this.userId,
     required this.role,
     required this.isAdmin,
   });
 
   final String username;
+  final String email;
   final String userId;
   final String role;
   final bool isAdmin;
@@ -258,6 +262,12 @@ class _ProfileInfoCard extends StatelessWidget {
             label: 'Username',
             value: username,
             icon: Icons.badge_outlined,
+          ),
+          const Divider(color: Colors.white12, height: 24),
+          _InfoRow(
+            label: 'Email',
+            value: email,
+            icon: Icons.email_outlined,
           ),
           const Divider(color: Colors.white12, height: 24),
           _InfoRow(

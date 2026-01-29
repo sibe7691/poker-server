@@ -4,14 +4,17 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# SQL schema for all tables
+# SQL schema for all tables (for fresh installs)
 SCHEMA = """
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'player',
+    password_reset_token VARCHAR(255),
+    password_reset_expires TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -80,9 +83,58 @@ CREATE TRIGGER users_updated_at
     EXECUTE FUNCTION update_updated_at();
 """
 
+# Migrations for existing databases
+MIGRATIONS = [
+    # Migration 1: Add email column to users table
+    """
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'email'
+        ) THEN
+            ALTER TABLE users ADD COLUMN email VARCHAR(255) UNIQUE;
+            -- Set email to username@placeholder.local for existing users
+            UPDATE users SET email = username || '@placeholder.local' WHERE email IS NULL;
+        END IF;
+    END $$;
+    """,
+    # Migration 2: Add password reset columns to users table
+    """
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'password_reset_token'
+        ) THEN
+            ALTER TABLE users ADD COLUMN password_reset_token VARCHAR(255);
+        END IF;
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'password_reset_expires'
+        ) THEN
+            ALTER TABLE users ADD COLUMN password_reset_expires TIMESTAMPTZ;
+        END IF;
+    END $$;
+    """,
+    # Migration 3: Create email index
+    """
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+    """,
+]
+
 
 async def init_db() -> None:
-    """Initialize database schema."""
+    """Initialize database schema and run migrations."""
     logger.info("Initializing database schema...")
     await db.execute(SCHEMA)
+    
+    logger.info("Running migrations...")
+    for i, migration in enumerate(MIGRATIONS, 1):
+        try:
+            await db.execute(migration)
+            logger.info(f"Migration {i} completed")
+        except Exception as e:
+            logger.warning(f"Migration {i} skipped or failed: {e}")
+    
     logger.info("Database schema initialized")

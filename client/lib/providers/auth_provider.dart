@@ -32,19 +32,32 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   /// Register a new user
-  Future<bool> register(String username, String password) async {
+  Future<bool> register(String username, String email, String password) async {
     state = state.loading();
-    final result = await _authService.register(username, password);
+    final result = await _authService.register(username, email, password);
     state = result;
     return result.isAuthenticated;
   }
 
-  /// Login with credentials
-  Future<bool> login(String username, String password) async {
+  /// Login with email and password
+  Future<bool> login(String email, String password) async {
     state = state.loading();
-    final result = await _authService.login(username, password);
+    final result = await _authService.login(email, password);
     state = result;
     return result.isAuthenticated;
+  }
+
+  /// Request password reset
+  Future<({bool success, String message})> forgotPassword(String email) async {
+    return _authService.forgotPassword(email);
+  }
+
+  /// Reset password with token
+  Future<({bool success, String message})> resetPassword(
+    String token,
+    String newPassword,
+  ) async {
+    return _authService.resetPassword(token, newPassword);
   }
 
   /// Logout and clear tokens
@@ -81,6 +94,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state.refreshToken!,
       state.userId!,
       state.username!,
+      email: state.email,
       role: state.role,
     );
 
