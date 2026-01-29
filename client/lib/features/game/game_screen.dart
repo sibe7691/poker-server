@@ -126,48 +126,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
 
   Future<void> _leaveTable() async {
-    // Show confirmation dialog, with extra warning if in active hand
-    final shouldLeave = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: PokerTheme.surfaceDark,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Leave Table?',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: Text(
-          _isInActiveHand
-              ? 'You are in an active hand. Leaving now will automatically '
-                    'fold your hand and forfeit your current bet.\n\n'
-                    'Are you sure you want to leave?'
-              : 'Are you sure you want to leave this table?',
-          style: const TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.white54),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _isInActiveHand
-                  ? PokerTheme.chipRed
-                  : PokerTheme.goldAccent,
-              foregroundColor: Colors.white,
-            ),
-            child: Text(_isInActiveHand ? 'Fold & Leave' : 'Leave'),
-          ),
-        ],
-      ),
-    );
-
-    if ((shouldLeave ?? false) && mounted) {
-      ref.read(gameControllerProvider.notifier).leaveTable();
+    // Spectators can leave without confirmation
+    // (This method is only called when not seated)
+    ref.read(gameControllerProvider.notifier).leaveTable();
+    if (mounted) {
       context.go('/lobby');
     }
   }
@@ -523,7 +485,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 size: 20,
               ),
               label: const Text(
-                'Back to Lobby',
+                'Lobby',
                 style: TextStyle(color: Colors.white70),
               ),
               style: TextButton.styleFrom(
