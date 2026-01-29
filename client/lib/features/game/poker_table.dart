@@ -295,6 +295,12 @@ class _PokerTableState extends ConsumerState<PokerTable> {
           ? _lastHandResult!.shownHands[player.userId]
           : null;
 
+      // Skip empty seats when player is seated (onSeatSelected is null)
+      // Only show empty seats when spectating so user can choose a seat
+      if (player == null && widget.onSeatSelected == null) {
+        continue;
+      }
+
       seats.add(
         Positioned(
           left: clampedX,
@@ -332,9 +338,7 @@ class _PokerTableState extends ConsumerState<PokerTable> {
                 )
               : EmptySeat(
                   seatNumber: i + 1,
-                  onTap: widget.onSeatSelected != null
-                      ? () => widget.onSeatSelected!(i)
-                      : null,
+                  onTap: () => widget.onSeatSelected!(i),
                 ),
         ),
       );
@@ -348,9 +352,9 @@ class _PokerTableState extends ConsumerState<PokerTable> {
     final centerX = constraints.maxWidth / 2;
     final centerY = constraints.maxHeight / 2;
 
-    // Position dealer button at same radius as bet chips
-    final dealerRadiusX = constraints.maxWidth * 0.28;
-    final dealerRadiusY = constraints.maxHeight * 0.24;
+    // Position dealer button on the table, same radius as bet chips
+    final dealerRadiusX = constraints.maxWidth * 0.23;
+    final dealerRadiusY = constraints.maxHeight * 0.15;
 
     final maxSeats = widget.gameState.maxPlayers;
     final dealerSeat = widget.gameState.dealerSeat;
@@ -391,9 +395,11 @@ class _PokerTableState extends ConsumerState<PokerTable> {
     final centerX = constraints.maxWidth / 2;
     final centerY = constraints.maxHeight / 2;
 
-    // Use a smaller radius for bet placement (closer to center than seats)
-    final betRadiusX = constraints.maxWidth * 0.28;
-    final betRadiusY = constraints.maxHeight * 0.24;
+    // Position bets ON the table surface (inside the table ellipse)
+    // Table extends to 0.35 X and 0.20 Y from center, so keep bets inside
+    // but outside the community cards area in the center
+    final betRadiusX = constraints.maxWidth * 0.23;
+    final betRadiusY = constraints.maxHeight * 0.15;
 
     final maxSeats = widget.gameState.maxPlayers;
 

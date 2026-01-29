@@ -387,17 +387,19 @@ class _ActionButton extends StatelessWidget {
               ),
               textAlign: TextAlign.center,
             ),
-            // Always reserve space for amount line to maintain consistent height
-            const SizedBox(height: 2),
-            Text(
-              amount != null ? formatChips(amount!) : '',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.normal,
-                color: textColor,
+            // Only show amount line if there's an amount
+            if (amount != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                formatChips(amount!),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.normal,
+                  color: textColor,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
+            ],
           ],
         ),
       ),

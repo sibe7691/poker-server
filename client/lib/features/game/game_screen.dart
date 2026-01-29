@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:poker_app/core/constants.dart';
 import 'package:poker_app/core/theme.dart';
+import 'package:poker_app/core/utils.dart';
 import 'package:poker_app/features/game/cashier_dialog.dart';
 import 'package:poker_app/features/game/poker_table.dart';
 import 'package:poker_app/models/models.dart';
@@ -440,22 +441,39 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           ),
         ),
       ),
-      // Chat FAB - positioned at bottom left
+      // Chat button and table money - positioned at bottom left
       floatingActionButton: _gameState != null
-          ? FloatingActionButton(
-              mini: true,
-              backgroundColor: PokerTheme.surfaceDark,
-              onPressed: () => _showChatSheet(context),
-              child: Badge(
-                label: _unreadChatCount > 0
-                    ? Text(
-                        _unreadChatCount > 9 ? '9+' : '$_unreadChatCount',
-                        style: const TextStyle(fontSize: 10),
-                      )
-                    : null,
-                isLabelVisible: _unreadChatCount > 0,
-                child: const Icon(Icons.chat, color: Colors.white70),
-              ),
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Chat button
+                FloatingActionButton(
+                  mini: true,
+                  heroTag: 'chat_fab',
+                  backgroundColor: PokerTheme.surfaceDark,
+                  onPressed: () => _showChatSheet(context),
+                  child: Badge(
+                    label: _unreadChatCount > 0
+                        ? Text(
+                            _unreadChatCount > 9 ? '9+' : '$_unreadChatCount',
+                            style: const TextStyle(fontSize: 10),
+                          )
+                        : null,
+                    isLabelVisible: _unreadChatCount > 0,
+                    child: const Icon(Icons.chat, color: Colors.white70),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Table money display
+                _TableMoneyLabel(
+                  amount:
+                      _gameState!.pot +
+                      _gameState!.players.fold<int>(
+                        0,
+                        (sum, player) => sum + player.chips + player.currentBet,
+                      ),
+                ),
+              ],
             )
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
@@ -1020,5 +1038,62 @@ class _ChatMessageTile extends StatelessWidget {
   String _formatTime(DateTime timestamp) {
     return '${timestamp.hour.toString().padLeft(2, '0')}:'
         '${timestamp.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+/// Label displaying the total money on the table
+class _TableMoneyLabel extends StatelessWidget {
+  const _TableMoneyLabel({required this.amount});
+
+  final int amount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: PokerTheme.surfaceDark,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Chip icon
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  PokerTheme.goldAccent,
+                  PokerTheme.goldAccent.withValues(alpha: 0.7),
+                ],
+              ),
+              border: Border.all(color: Colors.white54, width: 1.5),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Amount text
+          Text(
+            formatChips(amount),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -571,7 +571,7 @@ class _PlayerSeatState extends State<PlayerSeat> with TickerProviderStateMixin {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  'Needs chips',
+                  'No chips',
                   style: TextStyle(
                     color: Colors.orange.shade300,
                     fontWeight: FontWeight.w500,
